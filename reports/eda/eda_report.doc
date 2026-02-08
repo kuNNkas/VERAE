@@ -1,0 +1,202 @@
+<html><head><meta charset='utf-8'><title>EDA Report</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 24px; }
+h1, h2, h3 { color: #1a1a1a; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0 24px; }
+th, td { border: 1px solid #ddd; padding: 8px; font-size: 12px; }
+th { background: #f4f4f4; }
+img { max-width: 100%; }
+.section { margin-bottom: 32px; }
+</style>
+</head><body>
+<h1>EDA: X_kdl / X_29n / X_ext</h1>
+<p>Отчёт сформирован автоматически скриптом <code>scripts/generate_eda_report.py</code>.</p>
+<div class='section'>
+<h2>Баланс классов</h2>
+<table>
+<tr><th>Target</th><th>Positive</th><th>Total</th><th>Share</th></tr>
+<tr><td>Y_IRON_DEFICIENCY</td><td>447</td><td>6303</td><td>7.1%</td></tr>
+<tr><td>Y_IDA</td><td>392</td><td>6303</td><td>6.2%</td></tr>
+</table>
+</div>
+<div class='section'>
+<h2>X_kdl</h2>
+<p>Строк: <strong>6303</strong>, колонок: <strong>18</strong>, полные строки: <strong>99.8%</strong>.</p>
+<h3>Топ пропусков</h3>
+<table><tr><th>Feature</th><th>Missing rate</th></tr>
+<tr><td>LBXLYPCT</td><td>0.2%</td></tr>
+<tr><td>LBXMOPCT</td><td>0.2%</td></tr>
+<tr><td>LBXNEPCT</td><td>0.2%</td></tr>
+<tr><td>LBXEOPCT</td><td>0.2%</td></tr>
+<tr><td>LBXBAPCT</td><td>0.2%</td></tr>
+<tr><td>LBXWBCSI</td><td>0.2%</td></tr>
+<tr><td>LBXRBCSI</td><td>0.2%</td></tr>
+<tr><td>LBXHGB</td><td>0.2%</td></tr>
+<tr><td>LBXHCT</td><td>0.2%</td></tr>
+<tr><td>LBXMCVSI</td><td>0.2%</td></tr>
+<tr><td>LBXMCHSI</td><td>0.2%</td></tr>
+<tr><td>LBXRDW</td><td>0.2%</td></tr>
+<tr><td>LBXPLTSI</td><td>0.2%</td></tr>
+<tr><td>LBXMPSI</td><td>0.2%</td></tr>
+<tr><td>LBXMC</td><td>0.1%</td></tr>
+</table>
+<h3>Ключевые статистики (выборка)</h3>
+<table><tr><th>Feature</th><th>Mean</th><th>Std</th><th>Min</th><th>Max</th></tr>
+<tr><td>SEQN</td><td>113651.07</td><td>18607.14</td><td>83736.00</td><td>142307.00</td></tr>
+<tr><td>LBXWBCSI</td><td>7.41</td><td>2.17</td><td>2.10</td><td>22.80</td></tr>
+<tr><td>LBXLYPCT</td><td>32.05</td><td>8.39</td><td>5.60</td><td>67.60</td></tr>
+<tr><td>LBXMOPCT</td><td>7.49</td><td>1.96</td><td>0.90</td><td>23.20</td></tr>
+<tr><td>LBXNEPCT</td><td>57.42</td><td>9.32</td><td>10.60</td><td>91.50</td></tr>
+<tr><td>LBXEOPCT</td><td>2.43</td><td>1.94</td><td>0.00</td><td>28.40</td></tr>
+<tr><td>LBXBAPCT</td><td>0.73</td><td>0.31</td><td>0.00</td><td>3.40</td></tr>
+<tr><td>LBXRBCSI</td><td>4.53</td><td>0.37</td><td>2.92</td><td>6.44</td></tr>
+<tr><td>LBXHGB</td><td>12.98</td><td>1.27</td><td>6.20</td><td>17.40</td></tr>
+<tr><td>LBXHCT</td><td>38.95</td><td>3.29</td><td>21.80</td><td>50.50</td></tr>
+<tr><td>LBXMCVSI</td><td>86.23</td><td>6.56</td><td>35.40</td><td>107.70</td></tr>
+<tr><td>LBXMC</td><td>33.29</td><td>1.02</td><td>25.20</td><td>37.20</td></tr>
+</table>
+<h3>Корреляции с Y_IRON_DEFICIENCY (top +/-)</h3>
+<table><tr><th>Feature</th><th>Correlation</th></tr>
+<tr><td>LBXRDW</td><td>0.572</td></tr>
+<tr><td>LBXPLTSI</td><td>0.192</td></tr>
+<tr><td>LBXBAPCT</td><td>0.065</td></tr>
+<tr><td>LBXMOPCT</td><td>0.058</td></tr>
+<tr><td>RIDAGEYR</td><td>0.023</td></tr>
+<tr><td>LBXEOPCT</td><td>0.003</td></tr>
+<tr><td>RIAGENDR</td><td>0.000</td></tr>
+<tr><td>LBXLYPCT</td><td>-0.006</td></tr>
+<tr><td>LBXWBCSI</td><td>-0.034</td></tr>
+<tr><td>LBXRBCSI</td><td>-0.041</td></tr>
+<tr><td>SEQN</td><td>-0.042</td></tr>
+<tr><td>LBXMC</td><td>-0.476</td></tr>
+<tr><td>LBXHCT</td><td>-0.498</td></tr>
+<tr><td>LBXMCVSI</td><td>-0.515</td></tr>
+<tr><td>LBXMCHSI</td><td>-0.545</td></tr>
+<tr><td>LBXHGB</td><td>-0.552</td></tr>
+</table>
+<h3>Визуализации</h3>
+<p><img src='X_kdl_missing.svg' alt='Missing rates X_kdl'></p>
+<p><img src='X_kdl_corr.svg' alt='Correlations X_kdl'></p>
+</div>
+<div class='section'>
+<h2>X_29n</h2>
+<p>Строк: <strong>6303</strong>, колонок: <strong>26</strong>, полные строки: <strong>87.8%</strong>.</p>
+<h3>Топ пропусков</h3>
+<table><tr><th>Feature</th><th>Missing rate</th></tr>
+<tr><td>BP_SYS</td><td>7.8%</td></tr>
+<tr><td>BP_DIA</td><td>7.8%</td></tr>
+<tr><td>BMXWAIST</td><td>4.7%</td></tr>
+<tr><td>LBXSCH</td><td>1.8%</td></tr>
+<tr><td>LBXSGL</td><td>1.6%</td></tr>
+<tr><td>BMXBMI</td><td>1.3%</td></tr>
+<tr><td>BMXHT</td><td>1.2%</td></tr>
+<tr><td>BMXWT</td><td>1.1%</td></tr>
+<tr><td>LBXLYPCT</td><td>0.2%</td></tr>
+<tr><td>LBXMOPCT</td><td>0.2%</td></tr>
+<tr><td>LBXNEPCT</td><td>0.2%</td></tr>
+<tr><td>LBXEOPCT</td><td>0.2%</td></tr>
+<tr><td>LBXBAPCT</td><td>0.2%</td></tr>
+<tr><td>LBXWBCSI</td><td>0.2%</td></tr>
+<tr><td>LBXRBCSI</td><td>0.2%</td></tr>
+</table>
+<h3>Ключевые статистики (выборка)</h3>
+<table><tr><th>Feature</th><th>Mean</th><th>Std</th><th>Min</th><th>Max</th></tr>
+<tr><td>SEQN</td><td>113651.07</td><td>18607.14</td><td>83736.00</td><td>142307.00</td></tr>
+<tr><td>LBXWBCSI</td><td>7.41</td><td>2.17</td><td>2.10</td><td>22.80</td></tr>
+<tr><td>LBXLYPCT</td><td>32.05</td><td>8.39</td><td>5.60</td><td>67.60</td></tr>
+<tr><td>LBXMOPCT</td><td>7.49</td><td>1.96</td><td>0.90</td><td>23.20</td></tr>
+<tr><td>LBXNEPCT</td><td>57.42</td><td>9.32</td><td>10.60</td><td>91.50</td></tr>
+<tr><td>LBXEOPCT</td><td>2.43</td><td>1.94</td><td>0.00</td><td>28.40</td></tr>
+<tr><td>LBXBAPCT</td><td>0.73</td><td>0.31</td><td>0.00</td><td>3.40</td></tr>
+<tr><td>LBXRBCSI</td><td>4.53</td><td>0.37</td><td>2.92</td><td>6.44</td></tr>
+<tr><td>LBXHGB</td><td>12.98</td><td>1.27</td><td>6.20</td><td>17.40</td></tr>
+<tr><td>LBXHCT</td><td>38.95</td><td>3.29</td><td>21.80</td><td>50.50</td></tr>
+<tr><td>LBXMCVSI</td><td>86.23</td><td>6.56</td><td>35.40</td><td>107.70</td></tr>
+<tr><td>LBXMC</td><td>33.29</td><td>1.02</td><td>25.20</td><td>37.20</td></tr>
+</table>
+<h3>Корреляции с Y_IRON_DEFICIENCY (top +/-)</h3>
+<table><tr><th>Feature</th><th>Correlation</th></tr>
+<tr><td>LBXRDW</td><td>0.572</td></tr>
+<tr><td>LBXPLTSI</td><td>0.192</td></tr>
+<tr><td>BP_SYS</td><td>0.069</td></tr>
+<tr><td>LBXBAPCT</td><td>0.065</td></tr>
+<tr><td>LBXMOPCT</td><td>0.058</td></tr>
+<tr><td>RIDAGEYR</td><td>0.023</td></tr>
+<tr><td>LBXSGL</td><td>0.010</td></tr>
+<tr><td>BMXBMI</td><td>0.008</td></tr>
+<tr><td>LBXWBCSI</td><td>-0.034</td></tr>
+<tr><td>LBXRBCSI</td><td>-0.041</td></tr>
+<tr><td>SEQN</td><td>-0.042</td></tr>
+<tr><td>LBXMC</td><td>-0.476</td></tr>
+<tr><td>LBXHCT</td><td>-0.498</td></tr>
+<tr><td>LBXMCVSI</td><td>-0.515</td></tr>
+<tr><td>LBXMCHSI</td><td>-0.545</td></tr>
+<tr><td>LBXHGB</td><td>-0.552</td></tr>
+</table>
+<h3>Визуализации</h3>
+<p><img src='X_29n_missing.svg' alt='Missing rates X_29n'></p>
+<p><img src='X_29n_corr.svg' alt='Correlations X_29n'></p>
+<p><img src='X_29n_hist_hgb.svg' alt='Histogram HGB'></p>
+<p><img src='X_29n_hist_mcv.svg' alt='Histogram MCV'></p>
+<p><img src='X_29n_hist_rdw.svg' alt='Histogram RDW'></p>
+</div>
+<div class='section'>
+<h2>X_ext</h2>
+<p>Строк: <strong>6303</strong>, колонок: <strong>41</strong>, полные строки: <strong>6.8%</strong>.</p>
+<h3>Топ пропусков</h3>
+<table><tr><th>Feature</th><th>Missing rate</th></tr>
+<tr><td>SMQ040</td><td>79.0%</td></tr>
+<tr><td>ALQ121</td><td>56.7%</td></tr>
+<tr><td>ALQ130</td><td>47.5%</td></tr>
+<tr><td>OCQ180</td><td>45.0%</td></tr>
+<tr><td>SMQ020</td><td>21.8%</td></tr>
+<tr><td>OCD150</td><td>13.8%</td></tr>
+<tr><td>LBXSLDSI</td><td>8.5%</td></tr>
+<tr><td>BP_SYS</td><td>7.8%</td></tr>
+<tr><td>BP_DIA</td><td>7.8%</td></tr>
+<tr><td>BMXWAIST</td><td>4.7%</td></tr>
+<tr><td>LBXSASSI</td><td>2.0%</td></tr>
+<tr><td>LBXSATSI</td><td>1.8%</td></tr>
+<tr><td>LBXSTB</td><td>1.8%</td></tr>
+<tr><td>LBXSCR</td><td>1.8%</td></tr>
+<tr><td>LBXSUA</td><td>1.8%</td></tr>
+</table>
+<h3>Ключевые статистики (выборка)</h3>
+<table><tr><th>Feature</th><th>Mean</th><th>Std</th><th>Min</th><th>Max</th></tr>
+<tr><td>SEQN</td><td>113651.07</td><td>18607.14</td><td>83736.00</td><td>142307.00</td></tr>
+<tr><td>LBXWBCSI</td><td>7.41</td><td>2.17</td><td>2.10</td><td>22.80</td></tr>
+<tr><td>LBXLYPCT</td><td>32.05</td><td>8.39</td><td>5.60</td><td>67.60</td></tr>
+<tr><td>LBXMOPCT</td><td>7.49</td><td>1.96</td><td>0.90</td><td>23.20</td></tr>
+<tr><td>LBXNEPCT</td><td>57.42</td><td>9.32</td><td>10.60</td><td>91.50</td></tr>
+<tr><td>LBXEOPCT</td><td>2.43</td><td>1.94</td><td>0.00</td><td>28.40</td></tr>
+<tr><td>LBXBAPCT</td><td>0.73</td><td>0.31</td><td>0.00</td><td>3.40</td></tr>
+<tr><td>LBXRBCSI</td><td>4.53</td><td>0.37</td><td>2.92</td><td>6.44</td></tr>
+<tr><td>LBXHGB</td><td>12.98</td><td>1.27</td><td>6.20</td><td>17.40</td></tr>
+<tr><td>LBXHCT</td><td>38.95</td><td>3.29</td><td>21.80</td><td>50.50</td></tr>
+<tr><td>LBXMCVSI</td><td>86.23</td><td>6.56</td><td>35.40</td><td>107.70</td></tr>
+<tr><td>LBXMC</td><td>33.29</td><td>1.02</td><td>25.20</td><td>37.20</td></tr>
+</table>
+<h3>Корреляции с Y_IRON_DEFICIENCY (top +/-)</h3>
+<table><tr><th>Feature</th><th>Correlation</th></tr>
+<tr><td>LBXRDW</td><td>0.572</td></tr>
+<tr><td>LBXPLTSI</td><td>0.192</td></tr>
+<tr><td>BP_SYS</td><td>0.069</td></tr>
+<tr><td>LBXBAPCT</td><td>0.065</td></tr>
+<tr><td>ALQ130</td><td>0.062</td></tr>
+<tr><td>LBXMOPCT</td><td>0.058</td></tr>
+<tr><td>OCD150</td><td>0.033</td></tr>
+<tr><td>RIDAGEYR</td><td>0.023</td></tr>
+<tr><td>LBXSTB</td><td>-0.084</td></tr>
+<tr><td>LBXSAL</td><td>-0.091</td></tr>
+<tr><td>LBXSUA</td><td>-0.100</td></tr>
+<tr><td>LBXMC</td><td>-0.476</td></tr>
+<tr><td>LBXHCT</td><td>-0.498</td></tr>
+<tr><td>LBXMCVSI</td><td>-0.515</td></tr>
+<tr><td>LBXMCHSI</td><td>-0.545</td></tr>
+<tr><td>LBXHGB</td><td>-0.552</td></tr>
+</table>
+<h3>Визуализации</h3>
+<p><img src='X_ext_missing.svg' alt='Missing rates X_ext'></p>
+<p><img src='X_ext_corr.svg' alt='Correlations X_ext'></p>
+</div>
+</body></html>

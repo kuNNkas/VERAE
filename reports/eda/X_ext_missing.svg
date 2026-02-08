@@ -1,0 +1,42 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='900' height='420'>
+<rect width='100%' height='100%' fill='white' />
+<text x='450.0' y='30' font-family='Arial' font-size='16' text-anchor='middle'>X_ext: Missing rate (top 12)</text>
+<line x1='160' y1='50' x2='160' y2='340' stroke='#333' />
+<line x1='160' y1='340' x2='870' y2='340' stroke='#333' />
+<rect x='164.0' y='50.0' width='51.2' height='290.0' fill='#F58518' />
+<text x='189.6' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 189.6,360)'>SMQ040</text>
+<text x='189.6' y='44.0' font-family='Arial' font-size='10' text-anchor='middle'>79.04</text>
+<rect x='223.2' y='132.0' width='51.2' height='208.0' fill='#F58518' />
+<text x='248.8' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 248.8,360)'>ALQ121</text>
+<text x='248.8' y='126.0' font-family='Arial' font-size='10' text-anchor='middle'>56.69</text>
+<rect x='282.3' y='165.9' width='51.2' height='174.1' fill='#F58518' />
+<text x='307.9' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 307.9,360)'>ALQ130</text>
+<text x='307.9' y='159.9' font-family='Arial' font-size='10' text-anchor='middle'>47.45</text>
+<rect x='341.5' y='174.9' width='51.2' height='165.1' fill='#F58518' />
+<text x='367.1' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 367.1,360)'>OCQ180</text>
+<text x='367.1' y='168.9' font-family='Arial' font-size='10' text-anchor='middle'>45.01</text>
+<rect x='400.7' y='260.0' width='51.2' height='80.0' fill='#F58518' />
+<text x='426.2' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 426.2,360)'>SMQ020</text>
+<text x='426.2' y='254.0' font-family='Arial' font-size='10' text-anchor='middle'>21.82</text>
+<rect x='459.8' y='289.3' width='51.2' height='50.7' fill='#F58518' />
+<text x='485.4' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 485.4,360)'>OCD150</text>
+<text x='485.4' y='283.3' font-family='Arial' font-size='10' text-anchor='middle'>13.82</text>
+<rect x='519.0' y='308.9' width='51.2' height='31.1' fill='#F58518' />
+<text x='544.6' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 544.6,360)'>LBXSLDSI</text>
+<text x='544.6' y='302.9' font-family='Arial' font-size='10' text-anchor='middle'>8.49</text>
+<rect x='578.2' y='311.3' width='51.2' height='28.7' fill='#F58518' />
+<text x='603.8' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 603.8,360)'>BP_SYS</text>
+<text x='603.8' y='305.3' font-family='Arial' font-size='10' text-anchor='middle'>7.82</text>
+<rect x='637.3' y='311.3' width='51.2' height='28.7' fill='#F58518' />
+<text x='662.9' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 662.9,360)'>BP_DIA</text>
+<text x='662.9' y='305.3' font-family='Arial' font-size='10' text-anchor='middle'>7.82</text>
+<rect x='696.5' y='322.6' width='51.2' height='17.4' fill='#F58518' />
+<text x='722.1' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 722.1,360)'>BMXWAIST</text>
+<text x='722.1' y='316.6' font-family='Arial' font-size='10' text-anchor='middle'>4.74</text>
+<rect x='755.7' y='332.7' width='51.2' height='7.3' fill='#F58518' />
+<text x='781.2' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 781.2,360)'>LBXSASSI</text>
+<text x='781.2' y='326.7' font-family='Arial' font-size='10' text-anchor='middle'>2.00</text>
+<rect x='814.8' y='333.2' width='51.2' height='6.8' fill='#F58518' />
+<text x='840.4' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 840.4,360)'>LBXSATSI</text>
+<text x='840.4' y='327.2' font-family='Arial' font-size='10' text-anchor='middle'>1.84</text>
+</svg>
