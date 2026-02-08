@@ -1,0 +1,42 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='900' height='420'>
+<rect width='100%' height='100%' fill='white' />
+<text x='450.0' y='30' font-family='Arial' font-size='16' text-anchor='middle'>X_29n: Missing rate (top 12)</text>
+<line x1='160' y1='50' x2='160' y2='340' stroke='#333' />
+<line x1='160' y1='340' x2='870' y2='340' stroke='#333' />
+<rect x='164.0' y='50.0' width='51.2' height='290.0' fill='#F58518' />
+<text x='189.6' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 189.6,360)'>BP_SYS</text>
+<text x='189.6' y='44.0' font-family='Arial' font-size='10' text-anchor='middle'>7.82</text>
+<rect x='223.2' y='50.0' width='51.2' height='290.0' fill='#F58518' />
+<text x='248.8' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 248.8,360)'>BP_DIA</text>
+<text x='248.8' y='44.0' font-family='Arial' font-size='10' text-anchor='middle'>7.82</text>
+<rect x='282.3' y='164.1' width='51.2' height='175.9' fill='#F58518' />
+<text x='307.9' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 307.9,360)'>BMXWAIST</text>
+<text x='307.9' y='158.1' font-family='Arial' font-size='10' text-anchor='middle'>4.74</text>
+<rect x='341.5' y='273.5' width='51.2' height='66.5' fill='#F58518' />
+<text x='367.1' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 367.1,360)'>LBXSCH</text>
+<text x='367.1' y='267.5' font-family='Arial' font-size='10' text-anchor='middle'>1.79</text>
+<rect x='400.7' y='279.4' width='51.2' height='60.6' fill='#F58518' />
+<text x='426.2' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 426.2,360)'>LBXSGL</text>
+<text x='426.2' y='273.4' font-family='Arial' font-size='10' text-anchor='middle'>1.63</text>
+<rect x='459.8' y='293.5' width='51.2' height='46.5' fill='#F58518' />
+<text x='485.4' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 485.4,360)'>BMXBMI</text>
+<text x='485.4' y='287.5' font-family='Arial' font-size='10' text-anchor='middle'>1.25</text>
+<rect x='519.0' y='296.5' width='51.2' height='43.5' fill='#F58518' />
+<text x='544.6' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 544.6,360)'>BMXHT</text>
+<text x='544.6' y='290.5' font-family='Arial' font-size='10' text-anchor='middle'>1.17</text>
+<rect x='578.2' y='297.6' width='51.2' height='42.4' fill='#F58518' />
+<text x='603.8' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 603.8,360)'>BMXWT</text>
+<text x='603.8' y='291.6' font-family='Arial' font-size='10' text-anchor='middle'>1.14</text>
+<rect x='637.3' y='331.8' width='51.2' height='8.2' fill='#F58518' />
+<text x='662.9' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 662.9,360)'>LBXLYPCT</text>
+<text x='662.9' y='325.8' font-family='Arial' font-size='10' text-anchor='middle'>0.22</text>
+<rect x='696.5' y='331.8' width='51.2' height='8.2' fill='#F58518' />
+<text x='722.1' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 722.1,360)'>LBXMOPCT</text>
+<text x='722.1' y='325.8' font-family='Arial' font-size='10' text-anchor='middle'>0.22</text>
+<rect x='755.7' y='331.8' width='51.2' height='8.2' fill='#F58518' />
+<text x='781.2' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 781.2,360)'>LBXNEPCT</text>
+<text x='781.2' y='325.8' font-family='Arial' font-size='10' text-anchor='middle'>0.22</text>
+<rect x='814.8' y='331.8' width='51.2' height='8.2' fill='#F58518' />
+<text x='840.4' y='360' font-family='Arial' font-size='10' text-anchor='middle' transform='rotate(45 840.4,360)'>LBXEOPCT</text>
+<text x='840.4' y='325.8' font-family='Arial' font-size='10' text-anchor='middle'>0.22</text>
+</svg>
