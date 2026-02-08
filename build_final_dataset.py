@@ -89,7 +89,7 @@ BIOPRO_COLS = [
     'LBXSUA',   # uric acid
     'LBXSIR',   # serum iron (not a feature, but useful for validation)
 ]
-DEMO_COLS = ['RIAGENDR', 'RIDAGEYR', 'RIDRETH3']
+DEMO_COLS = ['RIAGENDR', 'RIDAGEYR', 'RIDRETH3', 'RIDEXPRG']  # добавлен RIDEXPRG для валидации
 BMX_COLS = ['BMXBMI', 'BMXHT', 'BMXWT', 'BMXWAIST']
 # BP columns differ between cycles; we'll standardize
 CRP_COL = 'LBXHSCRP'
