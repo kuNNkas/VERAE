@@ -169,6 +169,8 @@ False Positive: пациент сдал, всё в норме —
         |
         v
 [Загружает ОАК: фото / PDF / ручной ввод]
+
+MVP v0: для B2C стартуем с ручного ввода. CSV-импорт добавляем позже для B2B-сценариев.
         |
         v
 [OCR/парсинг -> нормализация данных]
@@ -255,15 +257,15 @@ risk_percent = round(p * 100, 1)
 ```json
 {
   "risk_percent": 23.4,
-  "risk_tier": "moderate",
+  "risk_tier": "gray",
   "confidence": "medium"
 }
 ```
 
 `risk_tier` для MVP:
-- `low`: `< 20%`
-- `moderate`: `20-50%`
-- `high`: `> 50%`
+- `high`: `>= 50%`
+- `gray`: `10-50%`
+- `low`: `< 10%`
 
 Пороги закрепить как конфигурацию (`threshold_version`), а не хардкодить в UI.
 
@@ -271,7 +273,7 @@ risk_percent = round(p * 100, 1)
 
 Для первого релиза зафиксировать модель как конфигурацию backend:
 
-- `model_name`: `ironrisk_bi_29n_women18_49.cbm`
+- `model_name`: `ironrisk_bi_29n_women18_49.cbm` (файл лежит в корне проекта)
 - `target_population`: женщины 18-49
 - `feature_contract`: текущий набор обязательных/рекомендуемых/опциональных полей
 
