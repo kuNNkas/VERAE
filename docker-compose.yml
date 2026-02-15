@@ -1,0 +1,22 @@
+services:
+  api:
+    build:
+      context: ./backend
+    container_name: verae_api
+    ports:
+      - "8000:8000"
+    environment:
+      - MODEL_NAME=ironrisk_bi_29n_women18_49.cbm
+      - MODEL_PATH=/workspace/ironrisk_bi_29n_women18_49.cbm
+      - FEATURES_PATH=/workspace/train_data/features_29n.txt
+    volumes:
+      - ./:/workspace:ro
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: verae_frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
