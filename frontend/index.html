@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VERAE B2C MVP</title>
+    <style>
+      body { font-family: Arial, sans-serif; max-width: 840px; margin: 24px auto; padding: 0 12px; }
+      h1 { margin-bottom: 8px; }
+      .grid { display: grid; grid-template-columns: repeat(2, minmax(180px, 1fr)); gap: 10px; }
+      label { display: flex; flex-direction: column; font-size: 14px; }
+      input { margin-top: 4px; padding: 8px; }
+      .required::after { content: ' *'; color: #cc0000; }
+      .hint { color: #666; font-size: 13px; margin: 10px 0; }
+      button { margin-top: 14px; padding: 10px 16px; }
+      pre { background: #f4f4f4; padding: 12px; border-radius: 8px; overflow: auto; }
+    </style>
+  </head>
+  <body>
+    <h1>VERAE B2C MVP (manual input)</h1>
+    <p class="hint">Заполнено обязательных: <span id="progress">0/8</span></p>
+
+    <form id="riskForm" class="grid"></form>
+    <button id="submitBtn">Рассчитать риск</button>
+
+    <h3>Ответ API</h3>
+    <pre id="out">{}</pre>
+
+    <script>
+      const required = ["LBXHGB", "LBXMCVSI", "LBXMCHSI", "LBXRDW", "LBXRBCSI", "LBXHCT", "RIDAGEYR", "BMXBMI"];
+      const recommended = ["LBXPLTSI", "LBXWBCSI", "LBXMPSI", "BP_SYS", "BP_DIA", "BMXWAIST", "LBXSCH", "LBXSGL"];
+      const form = document.getElementById("riskForm");
+      const fields = [...required, ...recommended];
+
+      fields.forEach((name) => {
+        const label = document.createElement("label");
+        label.className = required.includes(name) ? "required" : "";
+        label.textContent = name + (recommended.includes(name) ? " (повышает точность)" : "");
+        const input = document.createElement("input");
+        input.name = name;
+        input.type = "number";
+        input.step = "any";
+        input.oninput = updateProgress;
+        label.appendChild(input);
+        form.appendChild(label);
+      });
+
+      function updateProgress() {
+        const done = required.filter((n) => form.querySelector(`[name="${n}"]`).value !== "").length;
+        document.getElementById("progress").textContent = `${done}/8`;
+      }
+
+      document.getElementById("submitBtn").onclick = async (e) => {
+        e.preventDefault();
+        const payload = {};
+        for (const name of fields) {
+          const value = form.querySelector(`[name="${name}"]`).value;
+          if (value !== "") payload[name] = Number(value);
+        }
+
+        const missing = required.filter((n) => !(n in payload));
+        if (missing.length) {
+          document.getElementById("out").textContent = JSON.stringify({
+            status: "frontend_needs_input",
+            missing_required_fields: missing
+          }, null, 2);
+          return;
+        }
+
+        const res = await fetch("http://localhost:8000/v1/risk/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        document.getElementById("out").textContent = JSON.stringify(data, null, 2);
+      };
+
+      updateProgress();
+    </script>
+  </body>
+</html>
