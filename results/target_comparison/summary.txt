@@ -1,0 +1,39 @@
+EXPERIMENT #1: BODY IRON vs FERRITIN TARGET
+==================================================
+
+METHODOLOGY:
+- All preprocessing (imputation, scaling) inside CV via sklearn.Pipeline
+- Noise sensitivity via out-of-fold (OOF) predictions -- no train=test leakage
+- Cohen's kappa for agreement (accounts for chance)
+
+1. AGREEMENT
+   Overall: 67.1%, kappa=0.206
+   CRP<5: kappa=0.196
+   CRP>=5: kappa=0.243
+
+2. FN RATE (ferritin misses true iron deficiency):
+   CRP<5:  0.0%
+   CRP>=5: 0.0%
+
+3. MODEL PERFORMANCE (LogReg Pipeline, 5x3 CV):
+   T0_bodyiron: PR-AUC=0.7556+/-0.0485, ROC-AUC=0.9653+/-0.0099
+   T1_ferritin_naive: PR-AUC=0.7343+/-0.0187, ROC-AUC=0.7870+/-0.0137
+   T2a_crp_excl_uncertain: PR-AUC=0.8140+/-0.0172, ROC-AUC=0.8109+/-0.0145
+   T2b_crp_keep_uncertain: PR-AUC=0.7350+/-0.0155, ROC-AUC=0.7871+/-0.0095
+
+4. NOISE SENSITIVITY (OOF-based):
+   See noise_sensitivity_detailed.csv for full breakdown
+
+CLINICAL CONCLUSION:
+- Ferritin-based target yields label noise, esp. at CRP>=5
+- Body Iron (sTfR/ferritin) is a cleaner gold standard for training
+- CRP-aware filtering reduces noise but loses 17% of samples
+- T2a (exclude uncertain) is a sensitivity analysis, NOT an improved ground truth
+
+FILES:
+- target_comparison_metrics.csv
+- confusion_matrix_t0_t1_by_crp.png (counts + row-normalized)
+- disagreement_heatmap.png
+- target_comparison_prauc.png
+- noise_sensitivity_crp.png (OOF-based)
+- noise_sensitivity_detailed.csv

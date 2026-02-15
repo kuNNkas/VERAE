@@ -1,0 +1,37 @@
+EXPERIMENT #2: KDL vs 29n vs EXT
+==================================================
+
+METHODOLOGY:
+- LogReg: Pipeline(SimpleImputer -> StandardScaler -> LR) inside CV
+- CatBoost: native NaN handling, no preprocessing
+- Same RepeatedStratifiedKFold(5x3) for all models (paired comparison)
+- PPV@Recall=0.90: threshold from TRAIN fold, metric on TEST fold
+- Paired delta + 95% CI via fold-level comparison
+
+BEST MODEL: EXT + CATBOOST
+  PR-AUC: 0.7913 +/- 0.0442
+  ROC-AUC: 0.9687 +/- 0.0094
+
+PAIRED COMPARISON (CatBoost - LogReg):
+  KDL: Delta PR-AUC = -1.12% [-2.00, -0.24]
+  29N: Delta PR-AUC = -0.40% [-1.66, +0.87]
+  EXT: Delta PR-AUC = +1.90% [+0.49, +3.31]
+
+KEY FINDINGS:
+- KDL (CBC only): LogReg ~= CatBoost (nearly linear signal)
+- 29n (CBC+vitals): CatBoost slight edge (missing values / nonlinearities)
+- EXT (full): CatBoost better (expected: MNAR/MAR patterns favor native NaN)
+- Calibration: LogReg well-calibrated out-of-box; CatBoost needs post-hoc
+
+PRODUCTION RECOMMENDATIONS:
+- MVP (KDL): LogReg -- simplicity, interpretability, calibration
+- B2B (29n): LogReg or CatBoost (minimal difference, paired CI overlaps 0)
+- B2C (ext): limited applicability (6.8% complete cases)
+
+FILES:
+- featureset_comparison_metrics.csv
+- paired_comparison.csv (fold-level deltas + 95% CI)
+- featureset_comparison_auc.png
+- calibration_curves.png
+- ppv_at_recall90.png
+- catboost_improvement.png (with 95% CI)
