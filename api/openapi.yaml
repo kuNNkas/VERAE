@@ -1,0 +1,314 @@
+openapi: 3.0.3
+info:
+  title: VERAE API
+  version: 1.0.0
+  description: |
+    Single source of truth API-contract for frontend and backend integration.
+servers:
+  - url: https://api.verae.local
+    description: Example server
+security:
+  - bearerAuth: []
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '409':
+          description: User with this email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Authenticate user and issue JWT access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: JWT token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /analyses:
+    post:
+      tags: [Analyses]
+      summary: Create analysis and enqueue processing job
+      description: |
+        Creates analysis bound to the current authenticated user (`user_id` from JWT subject).
+        Persists upload metadata and creates processing job with status `queued`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAnalysisRequest'
+      responses:
+        '202':
+          description: Analysis accepted and queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateAnalysisResponse'
+        '401':
+          description: Missing/invalid JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /analyses/{id}:
+    get:
+      tags: [Analyses]
+      summary: Get analysis processing status
+      description: Returns status fields for analysis that belongs to authenticated user.
+      parameters:
+        - $ref: '#/components/parameters/AnalysisId'
+      responses:
+        '200':
+          description: Current analysis state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisStatusResponse'
+        '401':
+          description: Missing/invalid JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Analysis not found for current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /analyses/{id}/result:
+    get:
+      tags: [Analyses]
+      summary: Get final normalized model result
+      description: |
+        Returns only final normalized response payload for analysis that belongs to authenticated user.
+      parameters:
+        - $ref: '#/components/parameters/AnalysisId'
+      responses:
+        '200':
+          description: Final result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResultResponse'
+        '401':
+          description: Missing/invalid JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Analysis not found for current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Analysis is not completed yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    AnalysisId:
+      name: id
+      in: path
+      required: true
+      description: Analysis UUID
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    AuthResponse:
+      type: object
+      required: [access_token, token_type, expires_in, user]
+      properties:
+        access_token:
+          type: string
+          description: JWT token
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+          minimum: 1
+          description: Token TTL in seconds
+        user:
+          $ref: '#/components/schemas/UserInfo'
+    UserInfo:
+      type: object
+      required: [id, email, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        created_at:
+          type: string
+          format: date-time
+    CreateAnalysisRequest:
+      type: object
+      required: [upload]
+      properties:
+        upload:
+          $ref: '#/components/schemas/UploadMetadata'
+    UploadMetadata:
+      type: object
+      required: [filename, content_type, size_bytes]
+      properties:
+        filename:
+          type: string
+        content_type:
+          type: string
+        size_bytes:
+          type: integer
+          minimum: 1
+        checksum_sha256:
+          type: string
+          description: Hex encoded checksum if available
+        source:
+          type: string
+          description: Optional upload source marker
+          example: web
+    CreateAnalysisResponse:
+      type: object
+      required: [analysis_id, user_id, status, progress_stage, job, created_at, updated_at]
+      properties:
+        analysis_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          description: Bound from authenticated JWT subject
+        status:
+          $ref: '#/components/schemas/AnalysisStatus'
+        progress_stage:
+          $ref: '#/components/schemas/ProgressStage'
+        job:
+          $ref: '#/components/schemas/JobInfo'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    JobInfo:
+      type: object
+      required: [id, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued]
+    AnalysisStatusResponse:
+      type: object
+      required: [analysis_id, status, progress_stage, error_code, updated_at]
+      properties:
+        analysis_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/AnalysisStatus'
+        progress_stage:
+          $ref: '#/components/schemas/ProgressStage'
+        error_code:
+          type: string
+          nullable: true
+          description: Stable machine-readable error code for failed analyses
+        updated_at:
+          type: string
+          format: date-time
+    AnalysisResultResponse:
+      type: object
+      required: [score, decision, explanation_summary]
+      additionalProperties: false
+      properties:
+        score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        decision:
+          type: string
+          enum: [low_risk, medium_risk, high_risk]
+        explanation_summary:
+          type: string
+          description: Final normalized concise explanation for UI
+    AnalysisStatus:
+      type: string
+      enum: [queued, processing, completed, failed]
+    ProgressStage:
+      type: string
+      enum: [queued, validating_input, preprocessing, model_inference, postprocessing, completed, failed]
+    ErrorResponse:
+      type: object
+      required: [error_code, message]
+      properties:
+        error_code:
+          type: string
+        message:
+          type: string

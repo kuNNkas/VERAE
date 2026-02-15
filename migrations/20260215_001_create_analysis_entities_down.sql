@@ -1,0 +1,11 @@
+BEGIN;
+
+DROP TABLE IF EXISTS audit_events;
+DROP TABLE IF EXISTS predictions;
+DROP TABLE IF EXISTS extracted_features;
+DROP TABLE IF EXISTS analysis_jobs;
+DROP TABLE IF EXISTS uploads;
+DROP TABLE IF EXISTS model_versions;
+DROP TABLE IF EXISTS users;
+
+COMMIT;
