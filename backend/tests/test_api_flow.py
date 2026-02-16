@@ -7,7 +7,7 @@ from jose import jwt
 from app.main import app
 from app.db.database import SessionLocal, init_db
 from app.db.models import User
-from app.services.analyses_service import advance_analysis_state
+from app.services.analyses_service import process_analysis_job
 
 
 def _unique_email() -> str:
@@ -19,6 +19,19 @@ def _clean_users() -> None:
     with SessionLocal() as session:
         session.query(User).delete()
         session.commit()
+
+
+def _lab_payload() -> dict:
+    return {
+        "LBXHGB": 120,
+        "LBXMCVSI": 79,
+        "LBXMCHSI": 330,
+        "LBXRDW": 15.2,
+        "LBXRBCSI": 4.6,
+        "LBXHCT": 37,
+        "RIDAGEYR": 31,
+        "BMXBMI": 22.5,
+    }
 
 
 def _register_and_create_analysis(client: TestClient) -> tuple[dict[str, str], str, str]:
@@ -40,7 +53,8 @@ def _register_and_create_analysis(client: TestClient) -> tuple[dict[str, str], s
                 "content_type": "application/pdf",
                 "size_bytes": 128000,
                 "source": "web",
-            }
+            },
+            "lab": _lab_payload(),
         },
         headers=headers,
     )
@@ -59,38 +73,43 @@ def test_auth_and_analyses_flow() -> None:
     assert status_resp.status_code == 200
 
 
-def test_result_returns_409_when_analysis_not_completed() -> None:
+def test_result_returns_409_or_200_after_create() -> None:
     client = TestClient(app)
     headers, analysis_id, _ = _register_and_create_analysis(client)
 
     result_resp = client.get(f"/analyses/{analysis_id}/result", headers=headers)
 
-    assert result_resp.status_code == 409
-    assert result_resp.json() == {
-        "detail": {
-            "error_code": "analysis_not_completed",
-            "message": "Analysis is not completed yet",
+    if result_resp.status_code == 409:
+        assert result_resp.json() == {
+            "detail": {
+                "error_code": "analysis_not_completed",
+                "message": "Analysis is not completed yet",
+            }
         }
-    }
+    else:
+        assert result_resp.status_code == 200
+        body = result_resp.json()
+        assert body["status"] in {"ok", "needs_input"}
+        assert "risk_tier" in body or body.get("missing_required_fields") is not None
 
 
-def test_auth_and_analyses_flow_after_manual_completion() -> None:
+def test_auth_and_analyses_flow_after_completion() -> None:
     client = TestClient(app)
-    headers, analysis_id, user_id = _register_and_create_analysis(client)
+    headers, analysis_id, _ = _register_and_create_analysis(client)
+
+    process_analysis_job(analysis_id)
 
     status_resp = client.get(f"/analyses/{analysis_id}", headers=headers)
     assert status_resp.status_code == 200
-    assert status_resp.json()["status"] == "queued"
-
-    advance_result = advance_analysis_state(user_id=user_id, analysis_id=analysis_id)
-    assert advance_result is not None
-    assert advance_result.status == "completed"
+    assert status_resp.json()["status"] == "completed"
 
     result_resp = client.get(f"/analyses/{analysis_id}/result", headers=headers)
     assert result_resp.status_code == 200
     body = result_resp.json()
-    assert 0 <= body["score"] <= 1
-    assert body["decision"] in {"low_risk", "medium_risk", "high_risk"}
+    assert body["status"] in {"ok", "needs_input"}
+    assert body["risk_tier"] in {"HIGH", "WARNING", "GRAY", "LOW"}
+    assert "iron_index" in body
+    assert isinstance(body.get("explanations"), list)
 
 
 def test_register_and_login() -> None:

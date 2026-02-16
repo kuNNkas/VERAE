@@ -1,16 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 
 from app.core.dependencies import get_current_user
 from app.services.analyses_service import (
-    AnalysisResultResponse,
     AnalysisStatusResponse,
     CreateAnalysisRequest,
     CreateAnalysisResponse,
     create_analysis,
     get_analysis_result,
     get_analysis_status,
+    process_analysis_job,
 )
 from app.services.auth_service import UserRecord
+from app.services.prediction_service import PredictResponse
 
 router = APIRouter(prefix="/analyses", tags=["Analyses"])
 
@@ -27,9 +28,12 @@ ANALYSIS_NOT_COMPLETED_DETAIL = {
 @router.post("", response_model=CreateAnalysisResponse, status_code=status.HTTP_202_ACCEPTED)
 def create_analysis_endpoint(
     payload: CreateAnalysisRequest,
+    background_tasks: BackgroundTasks,
     current_user: UserRecord = Depends(get_current_user),
 ) -> CreateAnalysisResponse:
-    return create_analysis(current_user.id, payload)
+    response = create_analysis(current_user.id, payload)
+    background_tasks.add_task(process_analysis_job, response.analysis_id)
+    return response
 
 
 @router.get("/{analysis_id}", response_model=AnalysisStatusResponse)
@@ -48,7 +52,7 @@ def get_analysis_status_endpoint(
 
 @router.get(
     "/{analysis_id}/result",
-    response_model=AnalysisResultResponse,
+    response_model=PredictResponse,
     responses={
         status.HTTP_404_NOT_FOUND: {
             "description": "Analysis not found for current user",
@@ -71,7 +75,7 @@ def get_analysis_status_endpoint(
 def get_analysis_result_endpoint(
     analysis_id: str,
     current_user: UserRecord = Depends(get_current_user),
-) -> AnalysisResultResponse:
+) -> PredictResponse:
     status_result = get_analysis_status(current_user.id, analysis_id)
     if status_result is None:
         raise HTTPException(

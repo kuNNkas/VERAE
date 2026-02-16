@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import hashlib
 import time
 import uuid
 from dataclasses import dataclass
 
 from pydantic import BaseModel
+
+from app.services.prediction_service import PredictRequest, PredictResponse, predict_payload
 
 
 def _now_iso() -> str:
@@ -22,6 +23,7 @@ class UploadMetadata(BaseModel):
 
 class CreateAnalysisRequest(BaseModel):
     upload: UploadMetadata
+    lab: PredictRequest
 
 
 class JobInfo(BaseModel):
@@ -47,12 +49,6 @@ class AnalysisStatusResponse(BaseModel):
     updated_at: str
 
 
-class AnalysisResultResponse(BaseModel):
-    score: float
-    decision: str
-    explanation_summary: str
-
-
 @dataclass
 class AnalysisRecord:
     analysis_id: str
@@ -62,35 +58,42 @@ class AnalysisRecord:
     created_at: str
     updated_at: str
     upload: UploadMetadata
+    lab: dict
+    result: PredictResponse | None = None
 
 
 _ANALYSES: dict[str, AnalysisRecord] = {}
 
 
-def _derive_result(record: AnalysisRecord) -> AnalysisResultResponse:
-    digest = hashlib.sha256(
-        f"{record.analysis_id}:{record.upload.filename}:{record.upload.size_bytes}".encode("utf-8")
-    ).hexdigest()
-    score = (int(digest[:8], 16) % 1000) / 1000
-
-    if score < 0.33:
-        decision = "low_risk"
-    elif score < 0.66:
-        decision = "medium_risk"
-    else:
-        decision = "high_risk"
-
-    summary = (
-        "Анализ обработан. Итоговая оценка сформирована для MVP-пайплайна "
-        "(deterministic placeholder до подключения полного production workflow)."
-    )
-    return AnalysisResultResponse(score=round(score, 3), decision=decision, explanation_summary=summary)
+def process_analysis_job(analysis_id: str) -> None:
+    """Run model inference in background and store result. Sets status to completed or failed."""
+    record = _ANALYSES.get(analysis_id)
+    if record is None:
+        return
+    if not record.lab:
+        record.status = "failed"
+        record.progress_stage = "failed"
+        record.updated_at = _now_iso()
+        return
+    record.status = "processing"
+    record.progress_stage = "model_inference"
+    record.updated_at = _now_iso()
+    try:
+        result = predict_payload(record.lab)
+        record.result = result
+        record.status = "completed"
+        record.progress_stage = "completed"
+    except Exception:
+        record.status = "failed"
+        record.progress_stage = "failed"
+    record.updated_at = _now_iso()
 
 
 def create_analysis(user_id: str, payload: CreateAnalysisRequest) -> CreateAnalysisResponse:
     now = _now_iso()
     analysis_id = str(uuid.uuid4())
     job_id = str(uuid.uuid4())
+    lab_dict = payload.lab.model_dump()
     record = AnalysisRecord(
         analysis_id=analysis_id,
         user_id=user_id,
@@ -99,6 +102,7 @@ def create_analysis(user_id: str, payload: CreateAnalysisRequest) -> CreateAnaly
         created_at=now,
         updated_at=now,
         upload=payload.upload,
+        lab=lab_dict,
     )
     _ANALYSES[analysis_id] = record
 
@@ -151,12 +155,10 @@ def advance_analysis_state(
     )
 
 
-def get_analysis_result(user_id: str, analysis_id: str) -> AnalysisResultResponse | None:
+def get_analysis_result(user_id: str, analysis_id: str) -> PredictResponse | None:
     record = _ANALYSES.get(analysis_id)
     if record is None or record.user_id != user_id:
         return None
-
     if record.status != "completed":
-        return AnalysisResultResponse(score=-1, decision="low_risk", explanation_summary="PENDING")
-
-    return _derive_result(record)
+        return None
+    return record.result

@@ -10,11 +10,12 @@ Any API behavior change must be introduced through updates to this OpenAPI schem
 
 `api/openapi.yaml` now explicitly fixes response shapes for:
 
+- Health: `GET /health` → `HealthResponse`
 - Full authenticated flow:
   - `POST /auth/register` → `AuthResponse`
-  - `POST /analyses` → `CreateAnalysisResponse`
+  - `POST /analyses` (body: `upload` + `lab`, same shape as PredictRequest) → `CreateAnalysisResponse`
   - `GET /analyses/{id}` → `AnalysisStatusResponse`
-  - `GET /analyses/{id}/result` → `AnalysisResultResponse` (completed case)
+  - `GET /analyses/{id}/result` → `PredictResponse` (same schema as predict; completed case only)
 - Prediction flow:
   - `POST /v1/risk/predict` with `BMXBMI` → `PredictResponseOk`
   - `POST /v1/risk/predict` with `BMXHT + BMXWT` → `PredictResponseOk`

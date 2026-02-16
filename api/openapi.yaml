@@ -11,6 +11,20 @@ servers:
 security:
 - bearerAuth: []
 paths:
+  /health:
+    get:
+      tags:
+      - Health
+      summary: Health check
+      description: Simple liveness/readiness check for DevOps and monitoring.
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
   /auth/register:
     post:
       tags:
@@ -124,19 +138,19 @@ paths:
       tags:
       - Analyses
       summary: Get final normalized model result
-      description: 'Returns only final normalized response payload for analysis that
-        belongs to authenticated user.
+      description: 'Returns the same shape as POST /v1/risk/predict (iron_index, risk_tier,
+        clinical_action, explanations). Only when analysis status is completed.
 
         '
       parameters:
       - $ref: '#/components/parameters/AnalysisId'
       responses:
         '200':
-          description: Final result
+          description: Final result (same schema as Predict response)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AnalysisResultResponse'
+                $ref: '#/components/schemas/PredictResponse'
         '401':
           description: Missing/invalid JWT token
           content:
@@ -254,9 +268,13 @@ components:
       type: object
       required:
       - upload
+      - lab
       properties:
         upload:
           $ref: '#/components/schemas/UploadMetadata'
+        lab:
+          $ref: '#/components/schemas/PredictRequest'
+          description: Lab input for model inference (same as POST /v1/risk/predict)
     UploadMetadata:
       type: object
       required:
@@ -344,28 +362,15 @@ components:
         updated_at:
           type: string
           format: date-time
-    AnalysisResultResponse:
+    HealthResponse:
       type: object
       required:
-      - score
-      - decision
-      - explanation_summary
-      additionalProperties: false
+      - status
       properties:
-        score:
-          type: number
-          format: float
-          minimum: 0
-          maximum: 1
-        decision:
+        status:
           type: string
           enum:
-          - low_risk
-          - medium_risk
-          - high_risk
-        explanation_summary:
-          type: string
-          description: Final normalized concise explanation for UI
+          - ok
     AnalysisStatus:
       type: string
       enum:

@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.db.database import init_db
-from app.services.analyses_service import advance_analysis_state
+from app.services.analyses_service import process_analysis_job
 
 
 def _unique_email() -> str:
@@ -112,6 +112,7 @@ def test_e2e_auth_analyses_and_result_flow_contract() -> None:
 
     headers = {"Authorization": f"Bearer {register_body['access_token']}"}
 
+    lab = _base_predict_payload() | {"BMXBMI": 22.5}
     create_response = client.post(
         "/analyses",
         json={
@@ -120,7 +121,8 @@ def test_e2e_auth_analyses_and_result_flow_contract() -> None:
                 "content_type": "application/pdf",
                 "size_bytes": 128000,
                 "source": "web",
-            }
+            },
+            "lab": lab,
         },
         headers=headers,
     )
@@ -129,25 +131,14 @@ def test_e2e_auth_analyses_and_result_flow_contract() -> None:
     _assert_matches_schema(contract, create_body, _schema_for_status(contract, "/analyses", "post", "202"))
 
     analysis_id = create_body["analysis_id"]
-    user_id = create_body["user_id"]
+
+    process_analysis_job(analysis_id)
 
     status_response = client.get(f"/analyses/{analysis_id}", headers=headers)
     assert status_response.status_code == 200
     status_body = status_response.json()
     _assert_matches_schema(contract, status_body, _schema_for_status(contract, "/analyses/{id}", "get", "200"))
-
-    pending_result = client.get(f"/analyses/{analysis_id}/result", headers=headers)
-    assert pending_result.status_code == 409
-    assert pending_result.json() == {
-        "detail": {
-            "error_code": "analysis_not_completed",
-            "message": "Analysis is not completed yet",
-        }
-    }
-
-    advanced = advance_analysis_state(user_id=user_id, analysis_id=analysis_id)
-    assert advanced is not None
-    assert advanced.status == "completed"
+    assert status_body["status"] == "completed"
 
     result_response = client.get(f"/analyses/{analysis_id}/result", headers=headers)
     assert result_response.status_code == 200

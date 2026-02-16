@@ -90,9 +90,13 @@ MVP-регистрация пользователя. Возвращает access
 
 MVP-логин пользователя. Возвращает access token и профиль пользователя.
 
+### `GET /health`
+
+Проверка живости сервиса (для DevOps/мониторинга). Ответ: `{"status": "ok"}`.
+
 ### `POST /analyses`
 
-Создаёт analysis job для авторизованного пользователя (`Authorization: Bearer <token>`).
+Создаёт analysis job для авторизованного пользователя (`Authorization: Bearer <token>`). В теле обязательны `upload` (метаданные) и `lab` (те же поля, что в `POST /v1/risk/predict`). Обработка запускается в фоне (BackgroundTasks); через 1–2 с при повторном опросе `GET /analyses/{id}` статус станет `completed`, после чего `GET /analyses/{id}/result` вернёт результат в формате Predict.
 
 ### `GET /analyses/{id}`
 
