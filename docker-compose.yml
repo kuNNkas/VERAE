@@ -8,6 +8,8 @@ services:
     environment:
       - MODEL_NAME=ironrisk_bi_reg_29n.cbm
       - MODEL_PATH=/workspace/ironrisk_bi_reg_29n.cbm
+      - APP_ENV=${APP_ENV:-dev}
+      - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
     volumes:
       - ./:/workspace:ro
 
