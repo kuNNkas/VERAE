@@ -118,11 +118,29 @@ def get_analysis_status(user_id: str, analysis_id: str) -> AnalysisStatusRespons
     if record is None or record.user_id != user_id:
         return None
 
-    # MVP behavior: first status request promotes queued -> completed.
-    if record.status == "queued":
-        record.status = "completed"
-        record.progress_stage = "completed"
-        record.updated_at = _now_iso()
+    return AnalysisStatusResponse(
+        analysis_id=record.analysis_id,
+        status=record.status,
+        progress_stage=record.progress_stage,
+        error_code=None,
+        updated_at=record.updated_at,
+    )
+
+
+def advance_analysis_state(
+    user_id: str,
+    analysis_id: str,
+    *,
+    status: str = "completed",
+    progress_stage: str | None = None,
+) -> AnalysisStatusResponse | None:
+    record = _ANALYSES.get(analysis_id)
+    if record is None or record.user_id != user_id:
+        return None
+
+    record.status = status
+    record.progress_stage = progress_stage or status
+    record.updated_at = _now_iso()
 
     return AnalysisStatusResponse(
         analysis_id=record.analysis_id,

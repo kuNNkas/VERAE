@@ -1,14 +1,16 @@
+import uuid
+
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.services.analyses_service import advance_analysis_state
 
 
-def test_auth_and_analyses_flow() -> None:
-    client = TestClient(app)
-
+def _register_and_create_analysis(client: TestClient) -> tuple[dict[str, str], str, str]:
+    email = f"user-{uuid.uuid4().hex}@example.com"
     register = client.post(
         "/auth/register",
-        json={"email": "user@example.com", "password": "password123"},
+        json={"email": email, "password": "password123"},
     )
     assert register.status_code == 201
     token = register.json()["access_token"]
@@ -27,11 +29,38 @@ def test_auth_and_analyses_flow() -> None:
         headers=headers,
     )
     assert create.status_code == 202
-    analysis_id = create.json()["analysis_id"]
+    body = create.json()
+    analysis_id = body["analysis_id"]
+    user_id = body["user_id"]
+    return headers, analysis_id, user_id
+
+
+def test_result_returns_409_when_analysis_not_completed() -> None:
+    client = TestClient(app)
+    headers, analysis_id, _ = _register_and_create_analysis(client)
+
+    result_resp = client.get(f"/analyses/{analysis_id}/result", headers=headers)
+
+    assert result_resp.status_code == 409
+    assert result_resp.json() == {
+        "detail": {
+            "error_code": "analysis_not_completed",
+            "message": "Analysis is not completed yet",
+        }
+    }
+
+
+def test_auth_and_analyses_flow_after_manual_completion() -> None:
+    client = TestClient(app)
+    headers, analysis_id, user_id = _register_and_create_analysis(client)
 
     status_resp = client.get(f"/analyses/{analysis_id}", headers=headers)
     assert status_resp.status_code == 200
-    assert status_resp.json()["status"] in {"queued", "completed"}
+    assert status_resp.json()["status"] == "queued"
+
+    advance_result = advance_analysis_state(user_id=user_id, analysis_id=analysis_id)
+    assert advance_result is not None
+    assert advance_result.status == "completed"
 
     result_resp = client.get(f"/analyses/{analysis_id}/result", headers=headers)
     assert result_resp.status_code == 200
