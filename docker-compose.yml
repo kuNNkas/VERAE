@@ -18,6 +18,8 @@ services:
       context: ./frontend
     container_name: verae_frontend
     ports:
-      - "8080:80"
+      - "8080:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:
       - api

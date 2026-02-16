@@ -12,83 +12,77 @@
       input { margin-top: 4px; padding: 8px; }
       .required::after { content: ' *'; color: #cc0000; }
       .hint { color: #666; font-size: 13px; margin: 10px 0; }
-      button { margin-top: 14px; padding: 10px 16px; }
-      pre { background: #f4f4f4; padding: 12px; border-radius: 8px; overflow: auto; }
+      button { margin-top: 14px; padding: 10px 16px; margin-right: 8px; }
+      .error { color: #c00; margin: 10px 0; }
+      .risk-bar { height: 12px; background: #eee; border-radius: 6px; overflow: hidden; margin: 8px 0; }
+      .risk-fill { height: 100%; background: #6b8; transition: width 0.3s; }
+      .tier-labels { font-size: 12px; color: #666; }
+      .result-block { margin: 16px 0; }
+      .explanations-block { margin-top: 16px; }
+      .explanations-block ul { margin: 8px 0; padding-left: 20px; }
+      [data-screen] { display: block; }
+      [data-screen][hidden] { display: none; }
     </style>
   </head>
   <body>
-    <h1>VERAE B2C MVP (manual input)</h1>
-    <p class="hint">
-      Заполнено обязательных: <span id="progress">0/8</span>
-      (альтернатива: <code>BMXBMI</code> или одновременно <code>BMXHT</code> + <code>BMXWT</code>)
-    </p>
+    <div id="app">
+      <div data-screen="login" hidden>
+        <h1>Вход</h1>
+        <form id="loginForm">
+          <label>Email <input type="email" id="loginEmail" required /></label>
+          <label>Пароль <input type="password" id="loginPassword" required /></label>
+          <p id="loginError" class="error"></p>
+          <button type="submit">Войти</button>
+          <a href="#register">Регистрация</a>
+        </form>
+      </div>
 
-    <form id="riskForm" class="grid"></form>
-    <button id="submitBtn">Рассчитать риск</button>
+      <div data-screen="register" hidden>
+        <h1>Регистрация</h1>
+        <form id="registerForm">
+          <label>Email <input type="email" id="registerEmail" required /></label>
+          <label>Пароль (не менее 8 символов) <input type="password" id="registerPassword" minlength="8" required /></label>
+          <p id="registerError" class="error"></p>
+          <button type="submit">Зарегистрироваться</button>
+          <a href="#login">Вход</a>
+        </form>
+      </div>
 
-    <h3>Ответ API</h3>
-    <pre id="out">{}</pre>
+      <div data-screen="form" hidden>
+        <h1>VERAE B2C MVP</h1>
+        <button type="button" id="logoutBtn">Выйти</button>
+        <a href="#list">Мои анализы</a>
+        <p class="hint">
+          Заполнено обязательных: <span id="progress">0/8</span>
+          (альтернатива: <code>BMXBMI</code> или <code>BMXHT</code> + <code>BMXWT</code>)
+        </p>
+        <form id="riskForm" class="grid"></form>
+        <p id="formError" class="error"></p>
+        <button type="button" id="submitBtn">Анализировать</button>
+        <button type="button" id="openLastResultBtn" hidden>Открыть последний результат</button>
+      </div>
 
-    <script type="module">
-      import { BMI_ALTERNATIVE, REQUIRED_BASE, computeMissingRequired, computeProgress } from "./risk-form-logic.mjs";
+      <div data-screen="status" hidden>
+        <h1>Обработка</h1>
+        <p id="statusText">Загрузка…</p>
+        <p id="statusError" class="error"></p>
+        <p><a href="#form">Отмена</a></p>
+      </div>
 
-      const recommended = ["LBXLYPCT", "LBXMOPCT", "LBXNEPCT", "LBXEOPCT", "LBXBAPCT", "LBXMC", "LBXPLTSI", "LBXWBCSI", "LBXMPSI", "BP_SYS", "BP_DIA", "BMXWAIST", "LBXSCH", "LBXSGL"];
-      const form = document.getElementById("riskForm");
-      const fields = [...new Set([...REQUIRED_BASE, ...BMI_ALTERNATIVE, ...recommended])];
+      <div data-screen="result" hidden>
+        <h1>Результат анализа</h1>
+        <p id="resultError" class="error"></p>
+        <div id="resultContent"></div>
+        <p><a href="#form">Создать новый анализ</a> <a href="#list">Мои анализы</a></p>
+      </div>
 
-      fields.forEach((name) => {
-        const label = document.createElement("label");
-        label.className = REQUIRED_BASE.includes(name) || BMI_ALTERNATIVE.includes(name) ? "required" : "";
-        label.textContent = name + (recommended.includes(name) ? " (повышает точность)" : "");
-        const input = document.createElement("input");
-        input.name = name;
-        input.type = "number";
-        input.step = "any";
-        input.oninput = updateProgress;
-        label.appendChild(input);
-        form.appendChild(label);
-      });
-
-      function getRawValues() {
-        const values = {};
-        for (const name of fields) {
-          values[name] = form.querySelector(`[name="${name}"]`).value;
-        }
-        return values;
-      }
-
-      function updateProgress() {
-        const doneTotal = computeProgress(getRawValues());
-        document.getElementById("progress").textContent = `${doneTotal}/8`;
-      }
-
-      document.getElementById("submitBtn").onclick = async (e) => {
-        e.preventDefault();
-        const payload = {};
-        for (const name of fields) {
-          const value = form.querySelector(`[name="${name}"]`).value;
-          if (value !== "") payload[name] = Number(value);
-        }
-
-        const missing = computeMissingRequired(payload);
-        if (missing.length) {
-          document.getElementById("out").textContent = JSON.stringify({
-            status: "frontend_needs_input",
-            missing_required_fields: missing
-          }, null, 2);
-          return;
-        }
-
-        const res = await fetch("http://localhost:8000/v1/risk/predict", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        document.getElementById("out").textContent = JSON.stringify(data, null, 2);
-      };
-
-      updateProgress();
-    </script>
+      <div data-screen="list" hidden>
+        <h1>Мои анализы</h1>
+        <p id="listError" class="error"></p>
+        <div id="listContent"></div>
+        <p><a href="#form">Новый анализ</a></p>
+      </div>
+    </div>
+    <script type="module" src="./app.mjs"></script>
   </body>
 </html>

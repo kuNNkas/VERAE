@@ -2,7 +2,7 @@
 
 Минимальный end-to-end MVP для ручного ввода лабораторных показателей:
 
-- **Frontend**: форма ввода + pre-check обязательных полей
+- **Frontend**: Next.js (React, TypeScript, Tailwind, shadcn/ui, TanStack Query, RHF+Zod, Recharts)
 - **Backend (FastAPI)**: валидация, расчёт риска, confidence, tier
 - **Model**: `ironrisk_bi_reg_29n.cbm` (ожидается в корне проекта)
 
@@ -31,6 +31,15 @@ docker compose up --build
 - Frontend: http://localhost:8080
 - API health: http://localhost:8000/health
 - API docs (Swagger): http://localhost:8000/docs
+
+### Разработка фронта без ребилда Docker
+
+Чтобы менять фронт без пересборки образа:
+
+1. Запустите только API: `docker compose up api`
+2. В каталоге `frontend/`: `cp .env.local.example .env.local`, затем `npm install` и `npm run dev`
+3. Откройте http://localhost:3000 (Next.js dev server с HMR)
+4. В `.env.local` задайте `NEXT_PUBLIC_API_URL=http://localhost:8000`. Для CORS при запросах с localhost:3000 в `APP_ENV=dev` уже разрешён порт 3000.
 
 ---
 

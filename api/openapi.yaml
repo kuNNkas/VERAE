@@ -76,6 +76,24 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /analyses:
+    get:
+      tags:
+      - Analyses
+      summary: List analyses for current user
+      description: Returns analyses for authenticated user, sorted by created_at desc. No pagination.
+      responses:
+        '200':
+          description: List of analyses
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListAnalysesResponse'
+        '401':
+          description: Missing/invalid JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       tags:
       - Analyses
@@ -326,6 +344,35 @@ components:
         updated_at:
           type: string
           format: date-time
+    AnalysisListItem:
+      type: object
+      required:
+      - analysis_id
+      - status
+      - created_at
+      properties:
+        analysis_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - queued
+          - processing
+          - completed
+          - failed
+        created_at:
+          type: string
+          format: date-time
+    ListAnalysesResponse:
+      type: object
+      required:
+      - analyses
+      properties:
+        analyses:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalysisListItem'
     JobInfo:
       type: object
       required:

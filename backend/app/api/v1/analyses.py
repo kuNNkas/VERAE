@@ -5,9 +5,11 @@ from app.services.analyses_service import (
     AnalysisStatusResponse,
     CreateAnalysisRequest,
     CreateAnalysisResponse,
+    ListAnalysesResponse,
     create_analysis,
     get_analysis_result,
     get_analysis_status,
+    list_analyses,
     process_analysis_job,
 )
 from app.services.auth_service import UserRecord
@@ -23,6 +25,13 @@ ANALYSIS_NOT_COMPLETED_DETAIL = {
     "error_code": "analysis_not_completed",
     "message": "Analysis is not completed yet",
 }
+
+
+@router.get("", response_model=ListAnalysesResponse)
+def list_analyses_endpoint(
+    current_user: UserRecord = Depends(get_current_user),
+) -> ListAnalysesResponse:
+    return list_analyses(current_user.id)
 
 
 @router.post("", response_model=CreateAnalysisResponse, status_code=status.HTTP_202_ACCEPTED)

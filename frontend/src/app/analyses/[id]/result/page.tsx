@@ -1,0 +1,200 @@
+"use client";
+
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { getAnalysisStatus, getAnalysisResult } from "@/lib/api";
+import { AuthGuard } from "@/components/auth-guard";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  ReferenceLine,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
+import { ArrowDown, ArrowUp } from "lucide-react";
+
+const IRON_INDEX_MIN = -10;
+const IRON_INDEX_MAX = 15;
+
+export default function AnalysisResultPage() {
+  const params = useParams();
+  const id = params.id as string;
+
+  const statusQuery = useQuery({
+    queryKey: ["analysis-status", id],
+    queryFn: () => getAnalysisStatus(id),
+    enabled: !!id,
+  });
+
+  const resultQuery = useQuery({
+    queryKey: ["analysis-result", id],
+    queryFn: () => getAnalysisResult(id),
+    enabled: !!id && statusQuery.data?.status === "completed",
+  });
+
+  const status = statusQuery.data?.status;
+  const result = resultQuery.data;
+  const error = statusQuery.error ?? resultQuery.error;
+
+  if (statusQuery.isPending && !statusQuery.data) {
+    return (
+      <AuthGuard>
+        <div className="container max-w-2xl mx-auto py-12 px-4">
+          <p className="text-muted-foreground">Загрузка…</p>
+        </div>
+      </AuthGuard>
+    );
+  }
+
+  if (status === null || status === "failed") {
+    return (
+      <AuthGuard>
+        <div className="container max-w-md mx-auto py-12 px-4">
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-destructive">
+                {status === "failed"
+                  ? "Обработка завершилась с ошибкой."
+                  : "Анализ не найден."}
+              </p>
+              <Button asChild className="mt-4">
+                <Link href="/form">Создать новый анализ</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </AuthGuard>
+    );
+  }
+
+  if (status !== "completed") {
+    return (
+      <AuthGuard>
+        <div className="container max-w-md mx-auto py-12 px-4">
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-muted-foreground">Результат ещё не готов. Подождите или создайте новый анализ.</p>
+              <Button asChild className="mt-4">
+                <Link href={`/analyses/${id}`}>Проверить статус</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </AuthGuard>
+    );
+  }
+
+  if (resultQuery.isPending || !result) {
+    return (
+      <AuthGuard>
+        <div className="container max-w-2xl mx-auto py-12 px-4">
+          <p className="text-muted-foreground">Загрузка результата…</p>
+        </div>
+      </AuthGuard>
+    );
+  }
+
+  if (error) {
+    return (
+      <AuthGuard>
+        <div className="container max-w-md mx-auto py-12 px-4">
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-destructive">{error.message}</p>
+              <Button asChild className="mt-4">
+                <Link href="/form">Новый анализ</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </AuthGuard>
+    );
+  }
+
+  const ironIndex = result.iron_index ?? 0;
+  const tier = result.risk_tier ?? "GRAY";
+  const barFill = tier === "HIGH" ? "#ef4444" : tier === "WARNING" ? "#eab308" : tier === "GRAY" ? "#94a3b8" : "#22c55e";
+  const barData = [{ value: ironIndex, fill: barFill }];
+
+  return (
+    <AuthGuard>
+      <div className="container max-w-2xl mx-auto py-8 px-4">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-semibold">Результат анализа</h1>
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
+              <Link href="/form">Новый анализ</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/analyses">Мои анализы</Link>
+            </Button>
+          </div>
+        </div>
+
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Оценка риска</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p>
+              <strong>Уровень:</strong> {tier}
+              {result.risk_percent != null && ` (${result.risk_percent}%)`}
+            </p>
+            <p><strong>Индекс железа:</strong> {ironIndex}</p>
+            {result.clinical_action && (
+              <p><strong>Рекомендация:</strong> {result.clinical_action}</p>
+            )}
+            {result.confidence && (
+              <p><strong>Уверенность:</strong> {result.confidence}</p>
+            )}
+
+            <div className="h-8 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={barData}
+                  layout="vertical"
+                  margin={{ top: 0, right: 30, left: 0, bottom: 0 }}
+                >
+                  <XAxis type="number" domain={[IRON_INDEX_MIN, IRON_INDEX_MAX]} hide />
+                  <YAxis type="category" dataKey="name" width={0} hide />
+                  <ReferenceLine x={0} stroke="#64748b" strokeWidth={2} />
+                  <Bar dataKey="value" barSize={24} radius={4}>
+                    <Cell fill={barData[0].fill} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="text-xs text-muted-foreground">Шкала: {IRON_INDEX_MIN} … {IRON_INDEX_MAX} (индекс железа)</p>
+          </CardContent>
+        </Card>
+
+        {result.explanations && result.explanations.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Что повлияло на оценку</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2">
+                {result.explanations.map((e: { feature?: string; label?: string; text?: string; direction?: string }, i: number) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    {e.direction === "negative" ? (
+                      <ArrowDown className="h-4 w-4 shrink-0 text-amber-600" />
+                    ) : (
+                      <ArrowUp className="h-4 w-4 shrink-0 text-green-600" />
+                    )}
+                    <span><strong>{e.label ?? e.feature}</strong>: {e.text ?? ""}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </AuthGuard>
+  );
+}

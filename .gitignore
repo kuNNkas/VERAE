@@ -36,3 +36,10 @@ Thumbs.db
 
 # Data files
 *.log
+
+# Next.js / frontend
+.next/
+out/
+node_modules/
+.env.local
+.env*.local

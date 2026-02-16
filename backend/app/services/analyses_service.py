@@ -162,3 +162,27 @@ def get_analysis_result(user_id: str, analysis_id: str) -> PredictResponse | Non
     if record.status != "completed":
         return None
     return record.result
+
+
+class AnalysisListItem(BaseModel):
+    analysis_id: str
+    status: str
+    created_at: str
+
+
+class ListAnalysesResponse(BaseModel):
+    analyses: list[AnalysisListItem]
+
+
+def list_analyses(user_id: str) -> ListAnalysesResponse:
+    items = [
+        AnalysisListItem(
+            analysis_id=r.analysis_id,
+            status=r.status,
+            created_at=r.created_at,
+        )
+        for r in _ANALYSES.values()
+        if r.user_id == user_id
+    ]
+    items.sort(key=lambda x: x.created_at, reverse=True)
+    return ListAnalysesResponse(analyses=items)

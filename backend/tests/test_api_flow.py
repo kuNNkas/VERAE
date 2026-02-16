@@ -73,6 +73,22 @@ def test_auth_and_analyses_flow() -> None:
     assert status_resp.status_code == 200
 
 
+def test_list_analyses_returns_user_analyses() -> None:
+    client = TestClient(app)
+    headers, analysis_id, _ = _register_and_create_analysis(client)
+
+    list_resp = client.get("/analyses", headers=headers)
+    assert list_resp.status_code == 200
+    body = list_resp.json()
+    assert "analyses" in body
+    assert isinstance(body["analyses"], list)
+    assert len(body["analyses"]) >= 1
+    found = next((a for a in body["analyses"] if a["analysis_id"] == analysis_id), None)
+    assert found is not None
+    assert found["status"] in {"queued", "processing", "completed", "failed"}
+    assert "created_at" in found
+
+
 def test_result_returns_409_or_200_after_create() -> None:
     client = TestClient(app)
     headers, analysis_id, _ = _register_and_create_analysis(client)
