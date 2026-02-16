@@ -18,7 +18,10 @@
   </head>
   <body>
     <h1>VERAE B2C MVP (manual input)</h1>
-    <p class="hint">Заполнено обязательных: <span id="progress">0/8</span></p>
+    <p class="hint">
+      Заполнено обязательных: <span id="progress">0/8</span>
+      (альтернатива: <code>BMXBMI</code> или одновременно <code>BMXHT</code> + <code>BMXWT</code>)
+    </p>
 
     <form id="riskForm" class="grid"></form>
     <button id="submitBtn">Рассчитать риск</button>
@@ -27,14 +30,15 @@
     <pre id="out">{}</pre>
 
     <script>
-      const required = ["LBXHGB", "LBXMCVSI", "LBXMCHSI", "LBXRDW", "LBXRBCSI", "LBXHCT", "RIDAGEYR", "BMXBMI"];
+      const requiredBase = ["LBXHGB", "LBXMCVSI", "LBXMCHSI", "LBXRDW", "LBXRBCSI", "LBXHCT", "RIDAGEYR"];
+      const bmiAlternative = ["BMXBMI", "BMXHT", "BMXWT"];
       const recommended = ["LBXLYPCT", "LBXMOPCT", "LBXNEPCT", "LBXEOPCT", "LBXBAPCT", "LBXMC", "LBXPLTSI", "LBXWBCSI", "LBXMPSI", "BP_SYS", "BP_DIA", "BMXWAIST", "LBXSCH", "LBXSGL"];
       const form = document.getElementById("riskForm");
-      const fields = [...required, ...recommended];
+      const fields = [...new Set([...requiredBase, ...bmiAlternative, ...recommended])];
 
       fields.forEach((name) => {
         const label = document.createElement("label");
-        label.className = required.includes(name) ? "required" : "";
+        label.className = requiredBase.includes(name) || bmiAlternative.includes(name) ? "required" : "";
         label.textContent = name + (recommended.includes(name) ? " (повышает точность)" : "");
         const input = document.createElement("input");
         input.name = name;
@@ -46,8 +50,11 @@
       });
 
       function updateProgress() {
-        const done = required.filter((n) => form.querySelector(`[name="${n}"]`).value !== "").length;
-        document.getElementById("progress").textContent = `${done}/8`;
+        const doneBase = requiredBase.filter((n) => form.querySelector(`[name="${n}"]`).value !== "").length;
+        const hasBmi = form.querySelector('[name="BMXBMI"]').value !== "";
+        const hasHw = form.querySelector('[name="BMXHT"]').value !== "" && form.querySelector('[name="BMXWT"]').value !== "";
+        const doneTotal = doneBase + (hasBmi || hasHw ? 1 : 0);
+        document.getElementById("progress").textContent = `${doneTotal}/8`;
       }
 
       document.getElementById("submitBtn").onclick = async (e) => {
@@ -58,7 +65,13 @@
           if (value !== "") payload[name] = Number(value);
         }
 
-        const missing = required.filter((n) => !(n in payload));
+        const missing = requiredBase.filter((n) => !(n in payload));
+        const hasBmi = "BMXBMI" in payload;
+        const hasHw = "BMXHT" in payload && "BMXWT" in payload;
+        if (!hasBmi && !hasHw) {
+          missing.push("BMXBMI_or_BMXHT_BMXWT");
+        }
+
         if (missing.length) {
           document.getElementById("out").textContent = JSON.stringify({
             status: "frontend_needs_input",
