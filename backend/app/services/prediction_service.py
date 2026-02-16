@@ -41,6 +41,40 @@ RECOMMENDED_FIELDS = [
     "LBXSGL",
 ]
 
+
+UNIT_CONVERSIONS = {
+    "LBXSCR": 1 / 88.4,
+    "LBXSUA": 1 / 59.48,
+    "LBXSTB": 1 / 17.1,
+}
+
+
+def normalize_input(data: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(data)
+
+    hgb = normalized.get("LBXHGB")
+    if hgb is not None and hgb > 50:
+        normalized["LBXHGB"] = hgb / 10
+
+    mchc = normalized.get("LBXMCHSI")
+    if mchc is not None and mchc > 100:
+        normalized["LBXMCHSI"] = mchc / 10
+
+    glucose = normalized.get("LBXSGL")
+    if glucose is not None and glucose < 25:
+        normalized["LBXSGL"] = glucose * 18.01
+
+    cholesterol = normalized.get("LBXSCH")
+    if cholesterol is not None and cholesterol < 25:
+        normalized["LBXSCH"] = cholesterol * 38.67
+
+    for feature_name, multiplier in UNIT_CONVERSIONS.items():
+        value = normalized.get(feature_name)
+        if value is not None and value > 10:
+            normalized[feature_name] = value * multiplier
+
+    return normalized
+
 FEATURE_LABELS = {
     "LBXWBCSI": "Лейкоциты (WBC)",
     "LBXLYPCT": "Лимфоциты (%)",
@@ -151,14 +185,15 @@ class ModelRunner:
 
     @staticmethod
     def _build_dataframe(payload: dict[str, Any]) -> pd.DataFrame:
-        payload = dict(payload)
+        payload = normalize_input(payload)
         if payload.get("BMXBMI") is None and payload.get("BMXHT") and payload.get("BMXWT"):
             height_m = payload["BMXHT"] / 100
             payload["BMXBMI"] = payload["BMXWT"] / (height_m * height_m)
 
         row: dict[str, Any] = {feature: np.nan for feature in FEATURES}
         row.update(payload)
-        row.setdefault("RIAGENDR", 2)
+        # Gender is accepted by API and can be persisted upstream, but is not sent into model scoring.
+        row["RIAGENDR"] = np.nan
         return pd.DataFrame([row], columns=FEATURES)
 
     @staticmethod
