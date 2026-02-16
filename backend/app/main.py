@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from catboost import CatBoostRegressor
+from catboost import CatBoostRegressor, Pool
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -42,6 +42,59 @@ RECOMMENDED_FIELDS = [
     "LBXSCH",
     "LBXSGL",
 ]
+
+FEATURE_LABELS = {
+    "LBXWBCSI": "Лейкоциты (WBC)",
+    "LBXLYPCT": "Лимфоциты (%)",
+    "LBXMOPCT": "Моноциты (%)",
+    "LBXNEPCT": "Нейтрофилы (%)",
+    "LBXEOPCT": "Эозинофилы (%)",
+    "LBXBAPCT": "Базофилы (%)",
+    "LBXRBCSI": "Эритроциты (RBC)",
+    "LBXHGB": "Гемоглобин",
+    "LBXHCT": "Гематокрит (HCT)",
+    "LBXMCVSI": "Средний объем эритроцита (MCV)",
+    "LBXMC": "Содержание гемоглобина в эритроците (MCH)",
+    "LBXMCHSI": "Концентрация гемоглобина (MCHC)",
+    "LBXRDW": "Ширина распределения эритроцитов (RDW)",
+    "LBXPLTSI": "Тромбоциты (PLT)",
+    "LBXMPSI": "Средний объем тромбоцита (MPV)",
+    "RIAGENDR": "Пол",
+    "RIDAGEYR": "Возраст",
+    "LBXSGL": "Глюкоза",
+    "LBXSCH": "Холестерин",
+    "BMXBMI": "Индекс массы тела (ИМТ)",
+    "BMXHT": "Рост",
+    "BMXWT": "Вес",
+    "BMXWAIST": "Окружность талии",
+    "BP_SYS": "Систолическое давление",
+    "BP_DIA": "Диастолическое давление",
+}
+
+
+def build_explanation_text(feature_name: str, direction: str) -> str:
+    if direction == "negative":
+        negative_map = {
+            "LBXRDW": "Профиль RDW вносит вклад в снижение индекса железа и может быть связан с дефицитным паттерном.",
+            "LBXHGB": "Уровень гемоглобина в текущем профиле уменьшает оценку запасов железа.",
+            "LBXMCVSI": "MCV в текущем профиле сдвигает прогноз в сторону более низкого индекса железа.",
+            "LBXMC": "MCH в текущем профиле связан со снижением итоговой оценки железа.",
+            "LBXMCHSI": "MCHC в текущем профиле снижает прогнозируемый индекс железа.",
+        }
+        return negative_map.get(
+            feature_name,
+            "Этот показатель снижает итоговый индекс железа в модели.",
+        )
+
+    positive_map = {
+        "BMXBMI": "Текущий ИМТ в модели повышает расчетный индекс железа.",
+        "LBXWBCSI": "Профиль лейкоцитов в модели увеличивает итоговый индекс железа.",
+        "LBXPLTSI": "Текущее значение тромбоцитов вносит положительный вклад в индекс железа.",
+    }
+    return positive_map.get(
+        feature_name,
+        "Этот показатель повышает итоговый индекс железа в модели.",
+    )
 
 
 class PredictRequest(BaseModel):
@@ -82,6 +135,7 @@ class PredictResponse(BaseModel):
     risk_percent: float | None = None
     risk_tier: str | None = None
     clinical_action: str | None = None
+    explanations: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ModelRunner:
@@ -97,7 +151,8 @@ class ModelRunner:
         model.load_model(str(path))
         return model
 
-    def predict_iron_index(self, payload: dict[str, Any]) -> float:
+    @staticmethod
+    def _build_dataframe(payload: dict[str, Any]) -> pd.DataFrame:
         payload = dict(payload)
         if payload.get("BMXBMI") is None and payload.get("BMXHT") and payload.get("BMXWT"):
             height_m = payload["BMXHT"] / 100
@@ -106,19 +161,69 @@ class ModelRunner:
         row: dict[str, Any] = {feature: np.nan for feature in FEATURES}
         row.update(payload)
         row.setdefault("RIAGENDR", 2)
-        df = pd.DataFrame([row], columns=FEATURES)
+        return pd.DataFrame([row], columns=FEATURES)
+
+    @staticmethod
+    def _fallback_bi(df: pd.DataFrame) -> float:
+        return float(
+            0.10 * float(df["LBXHGB"].iloc[0] if pd.notna(df["LBXHGB"].iloc[0]) else 120)
+            + 0.08 * float(df["LBXMCVSI"].iloc[0] if pd.notna(df["LBXMCVSI"].iloc[0]) else 85)
+            - 0.20 * float(df["LBXRDW"].iloc[0] if pd.notna(df["LBXRDW"].iloc[0]) else 14)
+            - 7.0
+        )
+
+    def predict_iron_index(self, payload: dict[str, Any]) -> float:
+        df = self._build_dataframe(payload)
 
         if self.model is None:
             # Local-only deterministic fallback when model artifact is absent.
-            bi = (
-                0.10 * float(df["LBXHGB"].iloc[0] if pd.notna(df["LBXHGB"].iloc[0]) else 120)
-                + 0.08 * float(df["LBXMCVSI"].iloc[0] if pd.notna(df["LBXMCVSI"].iloc[0]) else 85)
-                - 0.20 * float(df["LBXRDW"].iloc[0] if pd.notna(df["LBXRDW"].iloc[0]) else 14)
-                - 7.0
-            )
-            return float(bi)
+            return self._fallback_bi(df)
 
         return float(self.model.predict(df)[0])
+
+    def get_explanations(self, payload: dict[str, Any], top_n: int = 8) -> list[dict[str, Any]]:
+        df = self._build_dataframe(payload)
+
+        if self.model is None:
+            fallback_impacts = {
+                "LBXHGB": 0.10 * float(df["LBXHGB"].iloc[0] if pd.notna(df["LBXHGB"].iloc[0]) else 120),
+                "LBXMCVSI": 0.08 * float(df["LBXMCVSI"].iloc[0] if pd.notna(df["LBXMCVSI"].iloc[0]) else 85),
+                "LBXRDW": -0.20 * float(df["LBXRDW"].iloc[0] if pd.notna(df["LBXRDW"].iloc[0]) else 14),
+            }
+            explanations = []
+            for feature, impact in sorted(fallback_impacts.items(), key=lambda item: item[1]):
+                direction = "negative" if impact < 0 else "positive"
+                explanations.append(
+                    {
+                        "feature": feature,
+                        "label": FEATURE_LABELS.get(feature, feature),
+                        "impact": round(float(impact), 4),
+                        "direction": direction,
+                        "text": build_explanation_text(feature, direction),
+                    }
+                )
+            return explanations
+
+        shap_values = self.model.get_feature_importance(Pool(df), type="ShapValues")[0]
+        explanations = []
+        for feature_name, impact in zip(FEATURES, shap_values[:-1]):
+            if abs(impact) < 0.01:
+                continue
+            direction = "negative" if impact < 0 else "positive"
+            explanations.append(
+                {
+                    "feature": feature_name,
+                    "label": FEATURE_LABELS.get(feature_name, feature_name),
+                    "impact": round(float(impact), 4),
+                    "direction": direction,
+                    "text": build_explanation_text(feature_name, direction),
+                }
+            )
+
+        explanations.sort(key=lambda item: item["impact"])
+        negative = [item for item in explanations if item["impact"] < 0]
+        positive = [item for item in explanations if item["impact"] >= 0]
+        return (negative[:top_n] + positive[:top_n])[:top_n]
 
 
 @lru_cache
@@ -207,4 +312,5 @@ def predict(payload: PredictRequest) -> PredictResponse:
         risk_percent=get_display_risk(iron_index),
         risk_tier=risk_tier,
         clinical_action=resolve_action_from_tier(risk_tier),
+        explanations=get_runner().get_explanations(data),
     )
