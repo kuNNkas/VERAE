@@ -212,6 +212,86 @@ y = 1 if (ferritin < 30) or (ferritin < 100 and sTfR_elevated)
 - Калибровка: Brier score, calibration curve
 - SHAP для интерпретируемости
 
+### Observability и операционные метрики запуска
+
+#### 1) События продукта (product analytics)
+
+Ввести единый словарь событий:
+
+- `signup_completed` — пользователь завершил регистрацию
+- `upload_submitted` — загружен анализ/файл для расчёта
+- `job_processing_started` — джоба поставлена в обработку/инференс
+- `job_done` — расчёт завершён (успешно или с ошибкой)
+- `result_viewed` — пользователь открыл страницу результата
+
+Обязательные поля для каждого события:
+
+- `event_name`
+- `event_ts` (UTC)
+- `analysis_id`
+- `request_id`
+- `user_id` / `session_id`
+- `status` (`ok`/`error`)
+- `error_code` (nullable)
+
+#### 2) Технические SLI/SLO метрики
+
+Ежедневно считать и выводить:
+
+- **Parse success rate** = `parsed_successfully / upload_submitted`
+- **Inference latency p50/p95** по end-to-end времени (`job_processing_started -> job_done`)
+- **Failed jobs ratio** = `job_done(status=error) / job_processing_started`
+
+Рекомендуемые стартовые алерты для MVP:
+
+- Parse success rate < 95%
+- Inference latency p95 > 30s
+- Failed jobs ratio > 5%
+
+#### 3) ML-мониторинг качества в проде
+
+Вести отдельный daily-слой по предсказаниям:
+
+- Доля `out_of_scope` (пример: неподдерживаемая демография/неполный профиль)
+- Доля `low_confidence` (например, `max_proba < 0.6`)
+- Распределение `risk_score` (гистограмма + перцентили p10/p50/p90)
+
+Минимальный payload инференс-лога:
+
+- `analysis_id`, `request_id`
+- `model_version`, `feature_schema_version`
+- `risk_score`, `decision`, `confidence_bucket`
+- `out_of_scope_flag` + `out_of_scope_reason`
+
+#### 4) Сквозная диагностика по `analysis_id` и `request_id`
+
+Все сервисы (frontend, API, async worker, ML-inference, BI-слой) должны логировать оба идентификатора:
+
+- `analysis_id` — бизнес-сущность конкретного анализа пользователя
+- `request_id` — технический идентификатор конкретного запроса/ретрая
+
+Правило корреляции:
+
+- один `analysis_id` может иметь несколько `request_id` (ретраи/повторные вызовы)
+- любые ошибки, таймауты и пользовательские события ищутся через пару (`analysis_id`, `request_id`)
+
+Это позволяет собирать end-to-end трассировку: `upload_submitted -> job_processing_started -> job_done -> result_viewed`.
+
+#### 5) Единый operational dashboard (daily launch cockpit)
+
+Собрать один дашборд с 4 блоками:
+
+1. **Funnel**: `signup_completed -> upload_submitted -> job_done(ok) -> result_viewed`
+2. **Tech health**: parse success rate, latency p50/p95, failed jobs ratio
+3. **ML health**: `% out_of_scope`, `% low_confidence`, `risk_score` distribution
+4. **Diagnostics**: топ ошибок по `error_code`, drill-down до логов по `analysis_id`/`request_id`
+
+Минимальная operational cadence:
+
+- daily review (утренний чек за D-1)
+- weekly trend review (7/28-day тренды + алерты)
+- incident playbook: при красной метрике сначала проверка `failed_jobs_ratio`, затем латентности, затем ML-долей `out_of_scope/low_confidence`
+
 ### Важно: стратификация по полу
 Разные пороги HGB: <12 г/дл для женщин, <13 г/дл для мужчин.
 Модель должна учитывать это при обучении.
