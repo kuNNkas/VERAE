@@ -29,16 +29,16 @@
     <h3>Ответ API</h3>
     <pre id="out">{}</pre>
 
-    <script>
-      const requiredBase = ["LBXHGB", "LBXMCVSI", "LBXMCHSI", "LBXRDW", "LBXRBCSI", "LBXHCT", "RIDAGEYR"];
-      const bmiAlternative = ["BMXBMI", "BMXHT", "BMXWT"];
+    <script type="module">
+      import { BMI_ALTERNATIVE, REQUIRED_BASE, computeMissingRequired, computeProgress } from "./risk-form-logic.mjs";
+
       const recommended = ["LBXLYPCT", "LBXMOPCT", "LBXNEPCT", "LBXEOPCT", "LBXBAPCT", "LBXMC", "LBXPLTSI", "LBXWBCSI", "LBXMPSI", "BP_SYS", "BP_DIA", "BMXWAIST", "LBXSCH", "LBXSGL"];
       const form = document.getElementById("riskForm");
-      const fields = [...new Set([...requiredBase, ...bmiAlternative, ...recommended])];
+      const fields = [...new Set([...REQUIRED_BASE, ...BMI_ALTERNATIVE, ...recommended])];
 
       fields.forEach((name) => {
         const label = document.createElement("label");
-        label.className = requiredBase.includes(name) || bmiAlternative.includes(name) ? "required" : "";
+        label.className = REQUIRED_BASE.includes(name) || BMI_ALTERNATIVE.includes(name) ? "required" : "";
         label.textContent = name + (recommended.includes(name) ? " (повышает точность)" : "");
         const input = document.createElement("input");
         input.name = name;
@@ -49,11 +49,16 @@
         form.appendChild(label);
       });
 
+      function getRawValues() {
+        const values = {};
+        for (const name of fields) {
+          values[name] = form.querySelector(`[name="${name}"]`).value;
+        }
+        return values;
+      }
+
       function updateProgress() {
-        const doneBase = requiredBase.filter((n) => form.querySelector(`[name="${n}"]`).value !== "").length;
-        const hasBmi = form.querySelector('[name="BMXBMI"]').value !== "";
-        const hasHw = form.querySelector('[name="BMXHT"]').value !== "" && form.querySelector('[name="BMXWT"]').value !== "";
-        const doneTotal = doneBase + (hasBmi || hasHw ? 1 : 0);
+        const doneTotal = computeProgress(getRawValues());
         document.getElementById("progress").textContent = `${doneTotal}/8`;
       }
 
@@ -65,13 +70,7 @@
           if (value !== "") payload[name] = Number(value);
         }
 
-        const missing = requiredBase.filter((n) => !(n in payload));
-        const hasBmi = "BMXBMI" in payload;
-        const hasHw = "BMXHT" in payload && "BMXWT" in payload;
-        if (!hasBmi && !hasHw) {
-          missing.push("BMXBMI_or_BMXHT_BMXWT");
-        }
-
+        const missing = computeMissingRequired(payload);
         if (missing.length) {
           document.getElementById("out").textContent = JSON.stringify({
             status: "frontend_needs_input",

@@ -2,17 +2,19 @@ openapi: 3.0.3
 info:
   title: VERAE API
   version: 1.0.0
-  description: |
-    Single source of truth API-contract for frontend and backend integration.
+  description: 'Single source of truth API-contract for frontend and backend integration.
+
+    '
 servers:
-  - url: https://api.verae.local
-    description: Example server
+- url: https://api.verae.local
+  description: Example server
 security:
-  - bearerAuth: []
+- bearerAuth: []
 paths:
   /auth/register:
     post:
-      tags: [Auth]
+      tags:
+      - Auth
       summary: Register a new user account
       security: []
       requestBody:
@@ -36,7 +38,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
   /auth/login:
     post:
-      tags: [Auth]
+      tags:
+      - Auth
       summary: Authenticate user and issue JWT access token
       security: []
       requestBody:
@@ -60,11 +63,15 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
   /analyses:
     post:
-      tags: [Analyses]
+      tags:
+      - Analyses
       summary: Create analysis and enqueue processing job
-      description: |
-        Creates analysis bound to the current authenticated user (`user_id` from JWT subject).
+      description: 'Creates analysis bound to the current authenticated user (`user_id`
+        from JWT subject).
+
         Persists upload metadata and creates processing job with status `queued`.
+
+        '
       requestBody:
         required: true
         content:
@@ -86,11 +93,13 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
   /analyses/{id}:
     get:
-      tags: [Analyses]
+      tags:
+      - Analyses
       summary: Get analysis processing status
-      description: Returns status fields for analysis that belongs to authenticated user.
+      description: Returns status fields for analysis that belongs to authenticated
+        user.
       parameters:
-        - $ref: '#/components/parameters/AnalysisId'
+      - $ref: '#/components/parameters/AnalysisId'
       responses:
         '200':
           description: Current analysis state
@@ -112,12 +121,15 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
   /analyses/{id}/result:
     get:
-      tags: [Analyses]
+      tags:
+      - Analyses
       summary: Get final normalized model result
-      description: |
-        Returns only final normalized response payload for analysis that belongs to authenticated user.
+      description: 'Returns only final normalized response payload for analysis that
+        belongs to authenticated user.
+
+        '
       parameters:
-        - $ref: '#/components/parameters/AnalysisId'
+      - $ref: '#/components/parameters/AnalysisId'
       responses:
         '200':
           description: Final result
@@ -143,6 +155,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /v1/risk/predict:
+    post:
+      tags:
+      - Predict
+      summary: Predict iron-deficiency risk from manual lab input
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PredictRequest'
+      responses:
+        '200':
+          description: Prediction response (`ok`) or missing-input response (`needs_input`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredictResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -161,7 +192,9 @@ components:
   schemas:
     RegisterRequest:
       type: object
-      required: [email, password]
+      required:
+      - email
+      - password
       properties:
         email:
           type: string
@@ -171,7 +204,9 @@ components:
           minLength: 8
     LoginRequest:
       type: object
-      required: [email, password]
+      required:
+      - email
+      - password
       properties:
         email:
           type: string
@@ -180,14 +215,19 @@ components:
           type: string
     AuthResponse:
       type: object
-      required: [access_token, token_type, expires_in, user]
+      required:
+      - access_token
+      - token_type
+      - expires_in
+      - user
       properties:
         access_token:
           type: string
           description: JWT token
         token_type:
           type: string
-          enum: [Bearer]
+          enum:
+          - Bearer
         expires_in:
           type: integer
           minimum: 1
@@ -196,7 +236,10 @@ components:
           $ref: '#/components/schemas/UserInfo'
     UserInfo:
       type: object
-      required: [id, email, created_at]
+      required:
+      - id
+      - email
+      - created_at
       properties:
         id:
           type: string
@@ -209,13 +252,17 @@ components:
           format: date-time
     CreateAnalysisRequest:
       type: object
-      required: [upload]
+      required:
+      - upload
       properties:
         upload:
           $ref: '#/components/schemas/UploadMetadata'
     UploadMetadata:
       type: object
-      required: [filename, content_type, size_bytes]
+      required:
+      - filename
+      - content_type
+      - size_bytes
       properties:
         filename:
           type: string
@@ -233,7 +280,14 @@ components:
           example: web
     CreateAnalysisResponse:
       type: object
-      required: [analysis_id, user_id, status, progress_stage, job, created_at, updated_at]
+      required:
+      - analysis_id
+      - user_id
+      - status
+      - progress_stage
+      - job
+      - created_at
+      - updated_at
       properties:
         analysis_id:
           type: string
@@ -256,17 +310,25 @@ components:
           format: date-time
     JobInfo:
       type: object
-      required: [id, status]
+      required:
+      - id
+      - status
       properties:
         id:
           type: string
           format: uuid
         status:
           type: string
-          enum: [queued]
+          enum:
+          - queued
     AnalysisStatusResponse:
       type: object
-      required: [analysis_id, status, progress_stage, error_code, updated_at]
+      required:
+      - analysis_id
+      - status
+      - progress_stage
+      - error_code
+      - updated_at
       properties:
         analysis_id:
           type: string
@@ -284,7 +346,10 @@ components:
           format: date-time
     AnalysisResultResponse:
       type: object
-      required: [score, decision, explanation_summary]
+      required:
+      - score
+      - decision
+      - explanation_summary
       additionalProperties: false
       properties:
         score:
@@ -294,21 +359,210 @@ components:
           maximum: 1
         decision:
           type: string
-          enum: [low_risk, medium_risk, high_risk]
+          enum:
+          - low_risk
+          - medium_risk
+          - high_risk
         explanation_summary:
           type: string
           description: Final normalized concise explanation for UI
     AnalysisStatus:
       type: string
-      enum: [queued, processing, completed, failed]
+      enum:
+      - queued
+      - processing
+      - completed
+      - failed
     ProgressStage:
       type: string
-      enum: [queued, validating_input, preprocessing, model_inference, postprocessing, completed, failed]
+      enum:
+      - queued
+      - validating_input
+      - preprocessing
+      - model_inference
+      - postprocessing
+      - completed
+      - failed
     ErrorResponse:
       type: object
-      required: [error_code, message]
+      required:
+      - error_code
+      - message
       properties:
         error_code:
           type: string
         message:
           type: string
+    PredictRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        LBXWBCSI:
+          type: number
+        LBXLYPCT:
+          type: number
+        LBXMOPCT:
+          type: number
+        LBXNEPCT:
+          type: number
+        LBXEOPCT:
+          type: number
+        LBXBAPCT:
+          type: number
+        LBXRBCSI:
+          type: number
+        LBXHGB:
+          type: number
+        LBXHCT:
+          type: number
+        LBXMCVSI:
+          type: number
+        LBXMC:
+          type: number
+        LBXMCHSI:
+          type: number
+        LBXRDW:
+          type: number
+        LBXPLTSI:
+          type: number
+        LBXMPSI:
+          type: number
+        LBXSGL:
+          type: number
+        LBXSCH:
+          type: number
+        BMXBMI:
+          type: number
+        BMXHT:
+          type: number
+        BMXWT:
+          type: number
+        BMXWAIST:
+          type: number
+        BP_SYS:
+          type: number
+        BP_DIA:
+          type: number
+        RIAGENDR:
+          type: integer
+        RIDAGEYR:
+          type: integer
+    PredictResponse:
+      oneOf:
+      - $ref: '#/components/schemas/PredictResponseOk'
+      - $ref: '#/components/schemas/PredictResponseNeedsInput'
+    PredictExplanation:
+      type: object
+      required:
+      - feature
+      - label
+      - impact
+      - direction
+      - text
+      additionalProperties: false
+      properties:
+        feature:
+          type: string
+        label:
+          type: string
+        impact:
+          type: number
+        direction:
+          type: string
+          enum:
+          - negative
+          - positive
+        text:
+          type: string
+    PredictResponseOk:
+      type: object
+      required:
+      - status
+      - confidence
+      - model_name
+      - missing_required_fields
+      - iron_index
+      - risk_percent
+      - risk_tier
+      - clinical_action
+      - explanations
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+          - ok
+        confidence:
+          type: string
+          enum:
+          - low
+          - medium
+          - high
+        model_name:
+          type: string
+        missing_required_fields:
+          type: array
+          items:
+            type: string
+        iron_index:
+          type: number
+        risk_percent:
+          type: number
+        risk_tier:
+          type: string
+          enum:
+          - HIGH
+          - WARNING
+          - GRAY
+          - LOW
+        clinical_action:
+          type: string
+        explanations:
+          type: array
+          items:
+            $ref: '#/components/schemas/PredictExplanation'
+    PredictResponseNeedsInput:
+      type: object
+      required:
+      - status
+      - confidence
+      - model_name
+      - missing_required_fields
+      - iron_index
+      - risk_percent
+      - risk_tier
+      - clinical_action
+      - explanations
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+          - needs_input
+        confidence:
+          type: string
+          enum:
+          - low
+        model_name:
+          type: string
+        missing_required_fields:
+          type: array
+          items:
+            type: string
+          minItems: 1
+        iron_index:
+          type: number
+          nullable: true
+        risk_percent:
+          type: number
+          nullable: true
+        risk_tier:
+          type: string
+          nullable: true
+        clinical_action:
+          type: string
+          nullable: true
+        explanations:
+          type: array
+          items:
+            $ref: '#/components/schemas/PredictExplanation'
