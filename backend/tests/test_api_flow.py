@@ -45,11 +45,38 @@ def test_auth_and_analyses_flow() -> None:
         headers=headers,
     )
     assert create.status_code == 202
-    analysis_id = create.json()["analysis_id"]
+    body = create.json()
+    analysis_id = body["analysis_id"]
+    user_id = body["user_id"]
+    return headers, analysis_id, user_id
+
+
+def test_result_returns_409_when_analysis_not_completed() -> None:
+    client = TestClient(app)
+    headers, analysis_id, _ = _register_and_create_analysis(client)
+
+    result_resp = client.get(f"/analyses/{analysis_id}/result", headers=headers)
+
+    assert result_resp.status_code == 409
+    assert result_resp.json() == {
+        "detail": {
+            "error_code": "analysis_not_completed",
+            "message": "Analysis is not completed yet",
+        }
+    }
+
+
+def test_auth_and_analyses_flow_after_manual_completion() -> None:
+    client = TestClient(app)
+    headers, analysis_id, user_id = _register_and_create_analysis(client)
 
     status_resp = client.get(f"/analyses/{analysis_id}", headers=headers)
     assert status_resp.status_code == 200
-    assert status_resp.json()["status"] in {"queued", "completed"}
+    assert status_resp.json()["status"] == "queued"
+
+    advance_result = advance_analysis_state(user_id=user_id, analysis_id=analysis_id)
+    assert advance_result is not None
+    assert advance_result.status == "completed"
 
     result_resp = client.get(f"/analyses/{analysis_id}/result", headers=headers)
     assert result_resp.status_code == 200

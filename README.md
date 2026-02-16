@@ -40,8 +40,17 @@ docker compose up --build
 
 - `MODEL_NAME=ironrisk_bi_reg_29n.cbm`
 - `MODEL_PATH=/workspace/ironrisk_bi_reg_29n.cbm`
+- `APP_ENV=dev`
+- `CORS_ALLOW_ORIGINS=http://localhost:8080,http://127.0.0.1:8080`
 
-Эти переменные уже прописаны в `docker-compose.yml`.
+CORS настраивается через переменные окружения:
+
+- `CORS_ALLOW_ORIGINS` — список origin через запятую.
+- Если `CORS_ALLOW_ORIGINS` не задан, используются дефолты по `APP_ENV`:
+  - `dev`: `localhost/127.0.0.1` порты `3000`, `5173`, `8080`
+  - `prod`: `https://app.verae.ai`
+
+Эти переменные уже прописаны в `docker-compose.yml` и могут быть переопределены через `.env` или окружение shell перед `docker compose up`.
 
 ### Переменные окружения для auth
 
