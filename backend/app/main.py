@@ -73,6 +73,7 @@ class PredictResponse(BaseModel):
     status: str
     missing_required_fields: list[str] = Field(default_factory=list)
     model_name: str
+    model_loaded: bool
 
 
 class ModelRunner:
@@ -180,13 +181,15 @@ def predict(payload: PredictRequest) -> PredictResponse:
             confidence=confidence,
             missing_required_fields=missing_required,
             model_name=MODEL_NAME,
+            model_loaded=get_runner().model is not None  # ← так тоже можно
         )
-
-    risk = get_runner().predict_proba(data)
+    runner = get_runner()
+    risk = runner.predict_proba(data)
     return PredictResponse(
         status="ok",
         risk_percent=round(risk * 100, 1),
         risk_tier=resolve_tier(risk),
         confidence=confidence,
         model_name=MODEL_NAME,
+        model_loaded=runner.model is not None
     )
