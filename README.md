@@ -109,3 +109,10 @@ docker compose down
 ```bash
 docker compose down -v
 ```
+
+## 6) Дальнейшая архитектура
+
+Подробный план перехода от MVP к production-архитектуре (frontend + backend + async pipeline + observability):
+
+- `Documents/NORMAL_ARCHITECTURE_PLAN.md`
+
