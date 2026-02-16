@@ -7,6 +7,7 @@ from jose import jwt
 from app.main import app
 from app.db.database import SessionLocal, init_db
 from app.db.models import User
+from app.services.analyses_service import advance_analysis_state
 
 
 def _unique_email() -> str:
@@ -20,9 +21,8 @@ def _clean_users() -> None:
         session.commit()
 
 
-def test_auth_and_analyses_flow() -> None:
+def _register_and_create_analysis(client: TestClient) -> tuple[dict[str, str], str, str]:
     _clean_users()
-    client = TestClient(app)
 
     register = client.post(
         "/auth/register",
@@ -49,6 +49,15 @@ def test_auth_and_analyses_flow() -> None:
     analysis_id = body["analysis_id"]
     user_id = body["user_id"]
     return headers, analysis_id, user_id
+
+
+def test_auth_and_analyses_flow() -> None:
+    client = TestClient(app)
+    headers, analysis_id, _ = _register_and_create_analysis(client)
+
+    status_resp = client.get(f"/analyses/{analysis_id}", headers=headers)
+    assert status_resp.status_code == 200
+    assert status_resp.json()["status"] == "queued"
 
 
 def test_result_returns_409_when_analysis_not_completed() -> None:
