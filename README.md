@@ -148,3 +148,14 @@ docker compose down
 docker compose down -v
 ```
 
+---
+
+## 6) Тесты backend
+
+Каноничный запуск тестов:
+
+```bash
+python -m pytest
+```
+
+Команда работает как из корня репозитория (через `pytest.ini` в корне), так и из каталога `backend/` (через `backend/pytest.ini`).
