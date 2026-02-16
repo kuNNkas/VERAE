@@ -5,6 +5,10 @@ catboost==1.2.7
 pandas==2.2.3
 numpy==1.26.4
 python-multipart==0.0.12
+SQLAlchemy==2.0.36
+passlib[bcrypt]==1.7.4
+bcrypt==4.2.1
+python-jose==3.3.0
 
 pytest==8.3.3
 httpx==0.28.1

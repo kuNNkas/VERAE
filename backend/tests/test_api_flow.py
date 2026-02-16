@@ -1,16 +1,32 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
+from jose import jwt
 
 from app.main import app
-from app.services.analyses_service import advance_analysis_state
+from app.db.database import SessionLocal, init_db
+from app.db.models import User
 
 
-def _register_and_create_analysis(client: TestClient) -> tuple[dict[str, str], str, str]:
-    email = f"user-{uuid.uuid4().hex}@example.com"
+def _unique_email() -> str:
+    return f"user-{uuid.uuid4().hex}@example.com"
+
+
+def _clean_users() -> None:
+    init_db()
+    with SessionLocal() as session:
+        session.query(User).delete()
+        session.commit()
+
+
+def test_auth_and_analyses_flow() -> None:
+    _clean_users()
+    client = TestClient(app)
+
     register = client.post(
         "/auth/register",
-        json={"email": email, "password": "password123"},
+        json={"email": _unique_email(), "password": "password123"},
     )
     assert register.status_code == 201
     token = register.json()["access_token"]
@@ -69,15 +85,76 @@ def test_auth_and_analyses_flow_after_manual_completion() -> None:
     assert body["decision"] in {"low_risk", "medium_risk", "high_risk"}
 
 
+def test_register_and_login() -> None:
+    _clean_users()
+    client = TestClient(app)
+    email = _unique_email()
+
+    register = client.post("/auth/register", json={"email": email, "password": "password123"})
+    assert register.status_code == 201
+
+    login = client.post("/auth/login", json={"email": email, "password": "password123"})
+    assert login.status_code == 200
+    assert login.json()["token_type"] == "Bearer"
+
+
+def test_reject_expired_token() -> None:
+    _clean_users()
+    client = TestClient(app)
+
+    register = client.post("/auth/register", json={"email": _unique_email(), "password": "password123"})
+    assert register.status_code == 201
+    user_id = register.json()["user"]["id"]
+
+    now = datetime.now(timezone.utc)
+    expired_token = jwt.encode(
+        {
+            "sub": user_id,
+            "iat": int((now - timedelta(minutes=2)).timestamp()),
+            "exp": int((now - timedelta(minutes=1)).timestamp()),
+        },
+        "dev-secret-change-me",
+        algorithm="HS256",
+    )
+
+    resp = client.get("/analyses/non-existent", headers={"Authorization": f"Bearer {expired_token}"})
+    assert resp.status_code == 401
+    assert resp.json()["detail"]["error_code"] == "token_expired"
+
+
+def test_reject_invalid_signature() -> None:
+    _clean_users()
+    client = TestClient(app)
+
+    register = client.post("/auth/register", json={"email": _unique_email(), "password": "password123"})
+    assert register.status_code == 201
+    user_id = register.json()["user"]["id"]
+
+    now = datetime.now(timezone.utc)
+    invalid_token = jwt.encode(
+        {
+            "sub": user_id,
+            "iat": int(now.timestamp()),
+            "exp": int((now + timedelta(minutes=10)).timestamp()),
+        },
+        "wrong-secret",
+        algorithm="HS256",
+    )
+
+    resp = client.get("/analyses/non-existent", headers={"Authorization": f"Bearer {invalid_token}"})
+    assert resp.status_code == 401
+    assert resp.json()["detail"]["error_code"] == "invalid_token"
+
+
 def test_predict_endpoint_works_with_si_inputs() -> None:
     client = TestClient(app)
 
     resp = client.post(
         "/v1/risk/predict",
         json={
-            "LBXHGB": 120,  # g/L -> auto-normalized to 12 g/dL
+            "LBXHGB": 120,
             "LBXMCVSI": 79,
-            "LBXMCHSI": 330,  # g/L -> auto-normalized to 33 g/dL
+            "LBXMCHSI": 330,
             "LBXRDW": 15.2,
             "LBXRBCSI": 4.6,
             "LBXHCT": 37,
