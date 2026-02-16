@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,7 +39,12 @@ def _resolve_cors_origins() -> list[str]:
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title='VERAE B2C API', version='0.3.0')
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        init_db()
+        yield
+
+    app = FastAPI(title='VERAE B2C API', version='0.3.0', lifespan=lifespan)
     cors_origins = _resolve_cors_origins()
 
     app.add_middleware(
@@ -52,9 +58,5 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(analyses_router)
     app.include_router(predict_router)
-
-    @app.on_event("startup")
-    def on_startup() -> None:
-        init_db()
 
     return app

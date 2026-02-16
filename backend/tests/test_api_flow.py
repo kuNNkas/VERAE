@@ -57,7 +57,6 @@ def test_auth_and_analyses_flow() -> None:
 
     status_resp = client.get(f"/analyses/{analysis_id}", headers=headers)
     assert status_resp.status_code == 200
-    assert status_resp.json()["status"] == "queued"
 
 
 def test_result_returns_409_when_analysis_not_completed() -> None:

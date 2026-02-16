@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from catboost import CatBoostRegressor, Pool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 MODEL_NAME = os.getenv("MODEL_NAME", "ironrisk_bi_reg_29n.cbm")
 MODEL_PATH = Path(os.getenv("MODEL_PATH", f"/{MODEL_NAME}"))
@@ -133,6 +133,8 @@ class PredictRequest(BaseModel):
 
 
 class PredictResponse(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     status: str
     confidence: str
     model_name: str
