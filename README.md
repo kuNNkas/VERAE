@@ -64,6 +64,27 @@ FEATURES = [
 
 ### `POST /v1/risk/predict`
 
+
+### `POST /auth/register`
+
+MVP-регистрация пользователя. Возвращает access token и профиль пользователя.
+
+### `POST /auth/login`
+
+MVP-логин пользователя. Возвращает access token и профиль пользователя.
+
+### `POST /analyses`
+
+Создаёт analysis job для авторизованного пользователя (`Authorization: Bearer <token>`).
+
+### `GET /analyses/{id}`
+
+Возвращает статус analysis job для владельца.
+
+### `GET /analyses/{id}/result`
+
+Возвращает финальный нормализованный результат для владельца после завершения job.
+
 Возвращает:
 
 - `status`: `ok` или `needs_input`

@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.v1.analyses import router as analyses_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.predict import router as predict_router
 
@@ -17,5 +18,6 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(auth_router)
+    app.include_router(analyses_router)
     app.include_router(predict_router)
     return app

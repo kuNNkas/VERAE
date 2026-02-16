@@ -8,6 +8,7 @@ import time
 import uuid
 from dataclasses import dataclass
 
+from fastapi import HTTPException, status
 from pydantic import BaseModel, Field
 
 TOKEN_TTL_SECONDS = int(os.getenv("AUTH_TOKEN_TTL_SECONDS", "3600"))
@@ -46,6 +47,7 @@ class UserRecord:
 
 
 _USERS_BY_EMAIL: dict[str, UserRecord] = {}
+_USERS_BY_ID: dict[str, UserRecord] = {}
 
 
 def _now_iso() -> str:
@@ -64,8 +66,41 @@ def _build_token(user_id: str, email: str, expires_in: int) -> str:
     return base64.urlsafe_b64encode(token_raw.encode("utf-8")).decode("utf-8")
 
 
+def decode_token(token: str) -> UserRecord:
+    try:
+        token_raw = base64.urlsafe_b64decode(token.encode("utf-8")).decode("utf-8")
+        user_id, email, expires_at_raw, sig = token_raw.split(":", 3)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error_code": "invalid_token", "message": "Missing/invalid JWT token"},
+        ) from exc
+
+    payload = f"{user_id}:{email}:{expires_at_raw}"
+    expected_sig = hmac.new(TOKEN_SECRET.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected_sig, sig):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error_code": "invalid_token", "message": "Missing/invalid JWT token"},
+        )
+
+    if int(expires_at_raw) < int(time.time()):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error_code": "token_expired", "message": "Missing/invalid JWT token"},
+        )
+
+    user = _USERS_BY_ID.get(user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error_code": "user_not_found", "message": "Missing/invalid JWT token"},
+        )
+    return user
+
+
 def register_user(payload: RegisterRequest) -> AuthResponse:
-    email = payload.email.lower()
+    email = payload.email.lower().strip()
     if email in _USERS_BY_EMAIL:
         raise ValueError("User with this email already exists")
 
@@ -76,6 +111,7 @@ def register_user(payload: RegisterRequest) -> AuthResponse:
         created_at=_now_iso(),
     )
     _USERS_BY_EMAIL[email] = user
+    _USERS_BY_ID[user.id] = user
 
     return AuthResponse(
         access_token=_build_token(user.id, user.email, TOKEN_TTL_SECONDS),
@@ -85,7 +121,7 @@ def register_user(payload: RegisterRequest) -> AuthResponse:
 
 
 def login_user(payload: LoginRequest) -> AuthResponse:
-    email = payload.email.lower()
+    email = payload.email.lower().strip()
     user = _USERS_BY_EMAIL.get(email)
     if user is None:
         raise PermissionError("Invalid credentials")
