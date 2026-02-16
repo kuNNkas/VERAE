@@ -1,18 +1,25 @@
 from __future__ import annotations
 
-import base64
-import hashlib
-import hmac
 import os
 import time
 import uuid
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
+from jose import JWTError, ExpiredSignatureError, jwt
+from passlib.context import CryptContext
 from pydantic import BaseModel, Field
+
+from app.db.database import SessionLocal
+from app.db.models import User
+from app.repositories.user_repository import UserRepository
 
 TOKEN_TTL_SECONDS = int(os.getenv("AUTH_TOKEN_TTL_SECONDS", "3600"))
 TOKEN_SECRET = os.getenv("AUTH_TOKEN_SECRET", "dev-secret-change-me")
+TOKEN_ALGORITHM = os.getenv("AUTH_TOKEN_ALGORITHM", "HS256")
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class RegisterRequest(BaseModel):
@@ -46,91 +53,103 @@ class UserRecord:
     created_at: str
 
 
-_USERS_BY_EMAIL: dict[str, UserRecord] = {}
-_USERS_BY_ID: dict[str, UserRecord] = {}
+def _now_utc() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-def _now_iso() -> str:
-    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+def _to_record(user: User) -> UserRecord:
+    created_at = user.created_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return UserRecord(id=user.id, email=user.email, password_hash=user.password_hash, created_at=created_at)
 
 
 def _hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+    return pwd_context.hash(password)
 
 
-def _build_token(user_id: str, email: str, expires_in: int) -> str:
-    expires_at = int(time.time()) + expires_in
-    payload = f"{user_id}:{email}:{expires_at}"
-    sig = hmac.new(TOKEN_SECRET.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
-    token_raw = f"{payload}:{sig}"
-    return base64.urlsafe_b64encode(token_raw.encode("utf-8")).decode("utf-8")
+def _verify_password(password: str, password_hash: str) -> bool:
+    return pwd_context.verify(password, password_hash)
+
+
+def _build_token(user_id: str, expires_in: int) -> str:
+    now = int(time.time())
+    payload = {
+        "sub": user_id,
+        "iat": now,
+        "exp": now + expires_in,
+    }
+    return jwt.encode(payload, TOKEN_SECRET, algorithm=TOKEN_ALGORITHM)
 
 
 def decode_token(token: str) -> UserRecord:
     try:
-        token_raw = base64.urlsafe_b64decode(token.encode("utf-8")).decode("utf-8")
-        user_id, email, expires_at_raw, sig = token_raw.split(":", 3)
-    except Exception as exc:  # noqa: BLE001
+        payload = jwt.decode(token, TOKEN_SECRET, algorithms=[TOKEN_ALGORITHM])
+    except ExpiredSignatureError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error_code": "token_expired", "message": "Missing/invalid JWT token"},
+        ) from exc
+    except JWTError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"error_code": "invalid_token", "message": "Missing/invalid JWT token"},
         ) from exc
 
-    payload = f"{user_id}:{email}:{expires_at_raw}"
-    expected_sig = hmac.new(TOKEN_SECRET.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected_sig, sig):
+    user_id = payload.get("sub")
+    if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"error_code": "invalid_token", "message": "Missing/invalid JWT token"},
         )
 
-    if int(expires_at_raw) < int(time.time()):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"error_code": "token_expired", "message": "Missing/invalid JWT token"},
-        )
+    with SessionLocal() as session:
+        repository = UserRepository(session)
+        user = repository.get_by_id(user_id)
 
-    user = _USERS_BY_ID.get(user_id)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"error_code": "user_not_found", "message": "Missing/invalid JWT token"},
         )
-    return user
+
+    return _to_record(user)
 
 
 def register_user(payload: RegisterRequest) -> AuthResponse:
     email = payload.email.lower().strip()
-    if email in _USERS_BY_EMAIL:
-        raise ValueError("User with this email already exists")
 
-    user = UserRecord(
-        id=str(uuid.uuid4()),
-        email=email,
-        password_hash=_hash_password(payload.password),
-        created_at=_now_iso(),
-    )
-    _USERS_BY_EMAIL[email] = user
-    _USERS_BY_ID[user.id] = user
+    with SessionLocal() as session:
+        repository = UserRepository(session)
+        if repository.get_by_email(email):
+            raise ValueError("User with this email already exists")
+
+        user = repository.create(
+            User(
+                id=str(uuid.uuid4()),
+                email=email,
+                password_hash=_hash_password(payload.password),
+                created_at=_now_utc(),
+            )
+        )
 
     return AuthResponse(
-        access_token=_build_token(user.id, user.email, TOKEN_TTL_SECONDS),
+        access_token=_build_token(user.id, TOKEN_TTL_SECONDS),
         expires_in=TOKEN_TTL_SECONDS,
-        user=UserInfo(id=user.id, email=user.email, created_at=user.created_at),
+        user=UserInfo(id=user.id, email=user.email, created_at=user.created_at.strftime("%Y-%m-%dT%H:%M:%SZ")),
     )
 
 
 def login_user(payload: LoginRequest) -> AuthResponse:
     email = payload.email.lower().strip()
-    user = _USERS_BY_EMAIL.get(email)
-    if user is None:
-        raise PermissionError("Invalid credentials")
 
-    if not hmac.compare_digest(user.password_hash, _hash_password(payload.password)):
+    with SessionLocal() as session:
+        repository = UserRepository(session)
+        user = repository.get_by_email(email)
+
+    if user is None or not _verify_password(payload.password, user.password_hash):
         raise PermissionError("Invalid credentials")
 
     return AuthResponse(
-        access_token=_build_token(user.id, user.email, TOKEN_TTL_SECONDS),
+        access_token=_build_token(user.id, TOKEN_TTL_SECONDS),
         expires_in=TOKEN_TTL_SECONDS,
-        user=UserInfo(id=user.id, email=user.email, created_at=user.created_at),
+        user=UserInfo(id=user.id, email=user.email, created_at=user.created_at.strftime("%Y-%m-%dT%H:%M:%SZ")),
     )
