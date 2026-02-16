@@ -4,7 +4,7 @@
 
 - **Frontend**: форма ввода + pre-check обязательных полей
 - **Backend (FastAPI)**: валидация, расчёт риска, confidence, tier
-- **Model**: `ironrisk_bi_29n_women18_49.cbm` (ожидается в корне проекта)
+- **Model**: `ironrisk_bi_reg_29n.cbm` (ожидается в корне проекта)
 
 ---
 
@@ -38,11 +38,22 @@ docker compose up --build
 
 По умолчанию backend использует:
 
-- `MODEL_NAME=ironrisk_bi_29n_women18_49.cbm`
-- `MODEL_PATH=/workspace/ironrisk_bi_29n_women18_49.cbm`
-- `FEATURES_PATH=/workspace/train_data/features_29n.txt`
+- `MODEL_NAME=ironrisk_bi_reg_29n.cbm`
+- `MODEL_PATH=/workspace/ironrisk_bi_reg_29n.cbm`
 
 Эти переменные уже прописаны в `docker-compose.yml`.
+
+Порядок фичей в backend зафиксирован строго:
+
+```python
+FEATURES = [
+    "LBXWBCSI", "LBXLYPCT", "LBXMOPCT", "LBXNEPCT", "LBXEOPCT", "LBXBAPCT",
+    "LBXRBCSI", "LBXHGB", "LBXHCT", "LBXMCVSI", "LBXMC", "LBXMCHSI", "LBXRDW",
+    "LBXPLTSI", "LBXMPSI", "RIAGENDR", "RIDAGEYR", "LBXSGL", "LBXSCH",
+    "BMXBMI", "BMXHT", "BMXWT", "BMXWAIST", "BP_SYS", "BP_DIA"
+]
+```
+
 
 > Если `.cbm` отсутствует, backend использует deterministic fallback-скоринг
 > только для локальной проверки интеграции (не для продакшена).
@@ -56,16 +67,19 @@ docker compose up --build
 Возвращает:
 
 - `status`: `ok` или `needs_input`
-- `risk_percent`
-- `risk_tier`: `high | gray | low`
+- `iron_index` (мг/кг)
+- `risk_percent` (UI mapping from BI)
+- `risk_tier`: `HIGH | WARNING | GRAY | LOW`
+- `clinical_action`
 - `confidence`: `high | medium | low`
 - `missing_required_fields`
 
 Пороги `risk_tier`:
 
-- `high`: `>= 0.50`
-- `gray`: `0.10–0.50`
-- `low`: `< 0.10`
+- `HIGH`: `iron_index < 0`
+- `WARNING`: `0 <= iron_index <= 2`
+- `GRAY`: `2 < iron_index <= 5`
+- `LOW`: `iron_index > 5`
 
 Пример запроса:
 

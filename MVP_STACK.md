@@ -15,11 +15,13 @@ docker compose up --build
 - B2C ручной ввод полей (required/recommended)
 - Frontend pre-check обязательных полей
 - Backend authoritative validation + missing fields
-- `risk_tier` пороги:
-  - high >= 0.50
-  - gray 0.10-0.50
-  - low < 0.10
-- Backend конфиг модели: `ironrisk_bi_29n_women18_49.cbm` (ожидается в корне проекта)
+- `risk_tier` от BI-регрессора:
+  - HIGH: BI < 0
+  - WARNING: 0 <= BI <= 2
+  - GRAY: 2 < BI <= 5
+  - LOW: BI > 5
+- `risk_percent` вычисляется из `iron_index` сигмоидным маппингом
+- Backend конфиг модели: `ironrisk_bi_reg_29n.cbm` (ожидается в корне проекта)
 
 ## Важно
 

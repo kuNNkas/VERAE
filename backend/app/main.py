@@ -7,15 +7,21 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from catboost import CatBoostClassifier
+from catboost import CatBoostRegressor
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-
-MODEL_NAME = os.getenv("MODEL_NAME", "ironrisk_bi_29n_women18_49.cbm")
+MODEL_NAME = os.getenv("MODEL_NAME", "ironrisk_bi_reg_29n.cbm")
 MODEL_PATH = Path(os.getenv("MODEL_PATH", f"/{MODEL_NAME}"))
-FEATURES_PATH = Path(os.getenv("FEATURES_PATH", "/train_data/features_29n.txt"))
+
+FEATURES = [
+    "LBXWBCSI", "LBXLYPCT", "LBXMOPCT", "LBXNEPCT", "LBXEOPCT", "LBXBAPCT",
+    "LBXRBCSI", "LBXHGB", "LBXHCT", "LBXMCVSI", "LBXMC", "LBXMCHSI", "LBXRDW",
+    "LBXPLTSI", "LBXMPSI", "RIAGENDR", "RIDAGEYR", "LBXSGL", "LBXSCH",
+    "BMXBMI", "BMXHT", "BMXWT", "BMXWAIST", "BP_SYS", "BP_DIA"
+]
+
 REQUIRED_FIELDS = [
     "LBXHGB",
     "LBXMCVSI",
@@ -25,6 +31,7 @@ REQUIRED_FIELDS = [
     "LBXHCT",
     "RIDAGEYR",
 ]
+
 RECOMMENDED_FIELDS = [
     "LBXPLTSI",
     "LBXWBCSI",
@@ -38,95 +45,85 @@ RECOMMENDED_FIELDS = [
 
 
 class PredictRequest(BaseModel):
-    LBXHGB: float | None = None
-    LBXMCVSI: float | None = None
-    LBXMCHSI: float | None = None
-    LBXRDW: float | None = None
-    LBXRBCSI: float | None = None
-    LBXHCT: float | None = None
-    RIDAGEYR: int | None = None
-    BMXBMI: float | None = None
-    BMXHT: float | None = None
-    BMXWT: float | None = None
-
-    LBXPLTSI: float | None = None
     LBXWBCSI: float | None = None
-    LBXMPSI: float | None = None
-    BP_SYS: float | None = None
-    BP_DIA: float | None = None
-    BMXWAIST: float | None = None
-    LBXSCH: float | None = None
-    LBXSGL: float | None = None
-
     LBXLYPCT: float | None = None
     LBXMOPCT: float | None = None
     LBXNEPCT: float | None = None
     LBXEOPCT: float | None = None
     LBXBAPCT: float | None = None
+    LBXRBCSI: float | None = None
+    LBXHGB: float | None = None
+    LBXHCT: float | None = None
+    LBXMCVSI: float | None = None
     LBXMC: float | None = None
+    LBXMCHSI: float | None = None
+    LBXRDW: float | None = None
+    LBXPLTSI: float | None = None
+    LBXMPSI: float | None = None
+    RIAGENDR: int | None = None
+    RIDAGEYR: int | None = None
+    LBXSGL: float | None = None
+    LBXSCH: float | None = None
+    BMXBMI: float | None = None
+    BMXHT: float | None = None
+    BMXWT: float | None = None
+    BMXWAIST: float | None = None
+    BP_SYS: float | None = None
+    BP_DIA: float | None = None
 
 
 class PredictResponse(BaseModel):
+    status: str
+    confidence: str
+    model_name: str
+    missing_required_fields: list[str] = Field(default_factory=list)
+
+    iron_index: float | None = None
     risk_percent: float | None = None
     risk_tier: str | None = None
-    confidence: str
-    status: str
-    missing_required_fields: list[str] = Field(default_factory=list)
-    model_name: str
-    model_loaded: bool
+    clinical_action: str | None = None
 
 
 class ModelRunner:
-    def __init__(self, model_path: Path, features_path: Path) -> None:
+    def __init__(self, model_path: Path) -> None:
         self.model_path = model_path
-        self.features = self._load_features(features_path)
         self.model = self._load_model(model_path)
 
     @staticmethod
-    def _load_features(path: Path) -> list[str]:
-        if not path.exists():
-            return [
-                "LBXWBCSI", "LBXLYPCT", "LBXMOPCT", "LBXNEPCT", "LBXEOPCT", "LBXBAPCT",
-                "LBXRBCSI", "LBXHGB", "LBXHCT", "LBXMCVSI", "LBXMC", "LBXMCHSI", "LBXRDW",
-                "LBXPLTSI", "LBXMPSI", "RIAGENDR", "RIDAGEYR", "LBXSGL", "LBXSCH",
-                "BMXBMI", "BMXHT", "BMXWT", "BMXWAIST", "BP_SYS", "BP_DIA"
-            ]
-        return [line.strip() for line in path.read_text().splitlines() if line.strip()]
-
-    @staticmethod
-    def _load_model(path: Path) -> CatBoostClassifier | None:
+    def _load_model(path: Path) -> CatBoostRegressor | None:
         if not path.exists():
             return None
-        model = CatBoostClassifier()
+        model = CatBoostRegressor()
         model.load_model(str(path))
         return model
 
-    def predict_proba(self, payload: dict[str, Any]) -> float:
+    def predict_iron_index(self, payload: dict[str, Any]) -> float:
+        payload = dict(payload)
         if payload.get("BMXBMI") is None and payload.get("BMXHT") and payload.get("BMXWT"):
             height_m = payload["BMXHT"] / 100
             payload["BMXBMI"] = payload["BMXWT"] / (height_m * height_m)
 
-        row: dict[str, Any] = {feature: np.nan for feature in self.features}
+        row: dict[str, Any] = {feature: np.nan for feature in FEATURES}
         row.update(payload)
         row.setdefault("RIAGENDR", 2)
-        df = pd.DataFrame([row], columns=self.features)
+        df = pd.DataFrame([row], columns=FEATURES)
 
         if self.model is None:
-            # Safe deterministic fallback only for local bring-up when model file is absent.
-            heuristic = (
-                0.15 * float(df["LBXRDW"].iloc[0] if pd.notna(df["LBXRDW"].iloc[0]) else 14)
-                - 0.01 * float(df["LBXHGB"].iloc[0] if pd.notna(df["LBXHGB"].iloc[0]) else 120)
-                - 0.005 * float(df["LBXMCVSI"].iloc[0] if pd.notna(df["LBXMCVSI"].iloc[0]) else 85)
+            # Local-only deterministic fallback when model artifact is absent.
+            bi = (
+                0.10 * float(df["LBXHGB"].iloc[0] if pd.notna(df["LBXHGB"].iloc[0]) else 120)
+                + 0.08 * float(df["LBXMCVSI"].iloc[0] if pd.notna(df["LBXMCVSI"].iloc[0]) else 85)
+                - 0.20 * float(df["LBXRDW"].iloc[0] if pd.notna(df["LBXRDW"].iloc[0]) else 14)
+                - 7.0
             )
-            return float(1 / (1 + np.exp(-heuristic)))
+            return float(bi)
 
-        proba = self.model.predict_proba(df)[:, 1][0]
-        return float(proba)
+        return float(self.model.predict(df)[0])
 
 
 @lru_cache
 def get_runner() -> ModelRunner:
-    return ModelRunner(MODEL_PATH, FEATURES_PATH)
+    return ModelRunner(MODEL_PATH)
 
 
 def resolve_missing_required(payload: dict[str, Any]) -> list[str]:
@@ -145,15 +142,32 @@ def resolve_confidence(payload: dict[str, Any], missing_required: list[str]) -> 
     return "high" if rec_present >= len(RECOMMENDED_FIELDS) / 2 else "medium"
 
 
-def resolve_tier(risk: float) -> str:
-    if risk >= 0.50:
-        return "high"
-    if risk < 0.10:
-        return "low"
-    return "gray"
+def resolve_tier_from_iron_index(iron_index: float) -> str:
+    if iron_index < 0:
+        return "HIGH"
+    if iron_index <= 2:
+        return "WARNING"
+    if iron_index <= 5:
+        return "GRAY"
+    return "LOW"
 
 
-app = FastAPI(title="VERAE B2C API", version="0.1.0")
+def resolve_action_from_tier(tier: str) -> str:
+    actions = {
+        "HIGH": "Срочно: ферритин + терапевт.",
+        "WARNING": "Рекомендовано: добор ферритина.",
+        "GRAY": "Совет: мониторинг + питание.",
+        "LOW": "Спокойствие: доборы не нужны.",
+    }
+    return actions[tier]
+
+
+def get_display_risk(iron_index: float) -> float:
+    risk = 1 / (1 + np.exp(0.5 * (iron_index - 0)))
+    return round(float(risk * 100), 1)
+
+
+app = FastAPI(title="VERAE B2C API", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -179,17 +193,18 @@ def predict(payload: PredictRequest) -> PredictResponse:
         return PredictResponse(
             status="needs_input",
             confidence=confidence,
-            missing_required_fields=missing_required,
             model_name=MODEL_NAME,
-            model_loaded=get_runner().model is not None  # ← так тоже можно
+            missing_required_fields=missing_required,
         )
-    runner = get_runner()
-    risk = runner.predict_proba(data)
+
+    iron_index = get_runner().predict_iron_index(data)
+    risk_tier = resolve_tier_from_iron_index(iron_index)
     return PredictResponse(
         status="ok",
-        risk_percent=round(risk * 100, 1),
-        risk_tier=resolve_tier(risk),
         confidence=confidence,
         model_name=MODEL_NAME,
-        model_loaded=runner.model is not None
+        iron_index=round(iron_index, 2),
+        risk_percent=get_display_risk(iron_index),
+        risk_tier=risk_tier,
+        clinical_action=resolve_action_from_tier(risk_tier),
     )

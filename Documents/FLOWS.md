@@ -245,27 +245,34 @@ MVP v0: для B2C стартуем с ручного ввода. CSV-импор
 
 ### API-ответ для фронта (v1)
 
-Модель возвращает вероятность через `predict_proba`, далее:
+Модель-регрессор возвращает `iron_index` (мг/кг), а UI-риск маппится из индекса:
 
 ```python
-p = final_model.predict_proba(X_user)[:, 1][0]
-risk_percent = round(p * 100, 1)
+iron_index = final_model.predict(X_user)[0]
+
+def get_display_risk(iron_index: float) -> float:
+    risk = 1 / (1 + np.exp(0.5 * (iron_index - 0)))
+    return round(risk * 100, 1)
+
+risk_percent = get_display_risk(iron_index)
 ```
 
 Рекомендуемый контракт:
 
 ```json
 {
-  "risk_percent": 23.4,
-  "risk_tier": "gray",
+  "iron_index": 1.3,
+  "risk_percent": 34.2,
+  "risk_tier": "WARNING",
   "confidence": "medium"
 }
 ```
 
-`risk_tier` для MVP:
-- `high`: `>= 50%`
-- `gray`: `10-50%`
-- `low`: `< 10%`
+`risk_tier` для MVP (по BI-регрессору):
+- `HIGH`: `iron_index < 0`
+- `WARNING`: `0 <= iron_index <= 2`
+- `GRAY`: `2 < iron_index <= 5`
+- `LOW`: `iron_index > 5`
 
 Пороги закрепить как конфигурацию (`threshold_version`), а не хардкодить в UI.
 
@@ -273,7 +280,7 @@ risk_percent = round(p * 100, 1)
 
 Для первого релиза зафиксировать модель как конфигурацию backend:
 
-- `model_name`: `ironrisk_bi_29n_women18_49.cbm` (файл лежит в корне проекта)
+- `model_name`: `ironrisk_bi_reg_29n.cbm` (файл лежит в корне проекта)
 - `target_population`: женщины 18-49
 - `feature_contract`: текущий набор обязательных/рекомендуемых/опциональных полей
 

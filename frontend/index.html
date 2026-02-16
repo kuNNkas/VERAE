@@ -5,229 +5,75 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>VERAE B2C MVP</title>
     <style>
-      body { font-family: Arial, sans-serif; max-width: 900px; margin: 24px auto; padding: 0 12px; }
+      body { font-family: Arial, sans-serif; max-width: 840px; margin: 24px auto; padding: 0 12px; }
       h1 { margin-bottom: 8px; }
-      .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-      .grid { display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap: 10px; margin-top: 10px; }
+      .grid { display: grid; grid-template-columns: repeat(2, minmax(180px, 1fr)); gap: 10px; }
       label { display: flex; flex-direction: column; font-size: 14px; }
       input { margin-top: 4px; padding: 8px; }
       .required::after { content: ' *'; color: #cc0000; }
       .hint { color: #666; font-size: 13px; margin: 10px 0; }
-      button { padding: 10px 14px; cursor: pointer; }
-      button.secondary { background: #f4f4f4; border: 1px solid #ddd; }
-      button.primary { background: #0b5; color: #fff; border: 0; }
+      button { margin-top: 14px; padding: 10px 16px; }
       pre { background: #f4f4f4; padding: 12px; border-radius: 8px; overflow: auto; }
-      .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: #eee; }
-      .status { margin-top: 10px; }
     </style>
   </head>
   <body>
     <h1>VERAE B2C MVP (manual input)</h1>
-
-    <div class="row">
-      <button id="fillLowBtn" class="secondary" type="button">Заполнить пример (Low)</button>
-      <button id="fillHighBtn" class="secondary" type="button">Заполнить пример (High)</button>
-      <button id="clearBtn" class="secondary" type="button">Очистить</button>
-      <span class="pill">Progress: <span id="progress">0/7 + BMI(или рост+вес)</span></span>
-    </div>
-
-    <p class="hint">
-      Обязательные: 7 полей + <b>BMI</b> <i>или</i> <b>рост+вес</b> (BMI посчитается автоматически).
-      Рекомендованные повышают уверенность модели.
-    </p>
+    <p class="hint">Заполнено обязательных: <span id="progress">0/8</span></p>
 
     <form id="riskForm" class="grid"></form>
-
-    <div class="row">
-      <button id="submitBtn" class="primary" type="button">Рассчитать риск</button>
-      <span class="status" id="status"></span>
-    </div>
+    <button id="submitBtn">Рассчитать риск</button>
 
     <h3>Ответ API</h3>
     <pre id="out">{}</pre>
 
     <script>
-      const API_URL = "http://localhost:8000/v1/risk/predict";
-
-      // REQUIRED per backend: 7 labs/age + BMI_OR(height+weight)
-      const requiredCore = ["LBXHGB", "LBXMCVSI", "LBXMC", "LBXMCHSI", "LBXRDW", "LBXRBCSI", "LBXHCT", "RIDAGEYR"];
-      const bmiGroup = ["BMXBMI", "BMXHT", "BMXWT"]; // one of: BMXBMI OR (BMXHT+BMXWT)
-
+      const required = ["LBXHGB", "LBXMCVSI", "LBXMCHSI", "LBXRDW", "LBXRBCSI", "LBXHCT", "RIDAGEYR", "BMXBMI"];
       const recommended = ["LBXPLTSI", "LBXWBCSI", "LBXMPSI", "BP_SYS", "BP_DIA", "BMXWAIST", "LBXSCH", "LBXSGL"];
-
-      // Show BMI/HT/WT in the form (so you can choose either path)
-      const fields = [...requiredCore, "BMXBMI", "BMXHT", "BMXWT", ...recommended];
-
       const form = document.getElementById("riskForm");
-      const out = document.getElementById("out");
-      const statusEl = document.getElementById("status");
+      const fields = [...required, ...recommended];
 
-      function makeInput(name) {
+      fields.forEach((name) => {
         const label = document.createElement("label");
-
-        const isRequired = requiredCore.includes(name) || name === "BMXBMI" || name === "BMXHT" || name === "BMXWT";
-        label.className = requiredCore.includes(name) ? "required" : "";
-
-        // Required marker only for core (7). BMI group is “either/or”, so not marking all three as required.
+        label.className = required.includes(name) ? "required" : "";
         label.textContent = name + (recommended.includes(name) ? " (повышает точность)" : "");
-
         const input = document.createElement("input");
         input.name = name;
         input.type = "number";
         input.step = "any";
-        input.oninput = () => {
-          if (name === "BMXHT" || name === "BMXWT") maybeAutoBMI();
-          updateProgress();
-        };
-
+        input.oninput = updateProgress;
         label.appendChild(input);
-        return label;
-      }
-
-      fields.forEach((name) => form.appendChild(makeInput(name)));
-
-      function getVal(name) {
-        const v = form.querySelector(`[name="${name}"]`).value;
-        return v === "" ? null : Number(v);
-      }
-
-      function setVal(name, value) {
-        const el = form.querySelector(`[name="${name}"]`);
-        el.value = (value === null || value === undefined) ? "" : String(value);
-      }
-
-      function maybeAutoBMI() {
-        const ht = getVal("BMXHT"); // cm
-        const wt = getVal("BMXWT"); // kg
-        const bmi = getVal("BMXBMI");
-        if ((bmi === null || Number.isNaN(bmi)) && ht && wt) {
-          const h = ht / 100;
-          const calc = wt / (h * h);
-          // 1 decimal to keep it clean
-          setVal("BMXBMI", Math.round(calc * 10) / 10);
-        }
-      }
-
-      function resolveMissing(payload) {
-        const missing = requiredCore.filter((n) => payload[n] === undefined);
-
-        const hasBMI = payload["BMXBMI"] !== undefined;
-        const hasHW = payload["BMXHT"] !== undefined && payload["BMXWT"] !== undefined;
-        if (!hasBMI && !hasHW) missing.push("BMXBMI_or_BMXHT_BMXWT");
-
-        return missing;
-      }
+        form.appendChild(label);
+      });
 
       function updateProgress() {
-        const payload = collectPayload();
-        const doneCore = requiredCore.filter((n) => payload[n] !== undefined).length;
-
-        const hasBMI = payload["BMXBMI"] !== undefined;
-        const hasHW = payload["BMXHT"] !== undefined && payload["BMXWT"] !== undefined;
-        const bmiOk = hasBMI || hasHW;
-
-        document.getElementById("progress").textContent =
-          `${doneCore}/7 + ${bmiOk ? "BMI✅" : "BMI(или рост+вес)❌"}`;
+        const done = required.filter((n) => form.querySelector(`[name="${n}"]`).value !== "").length;
+        document.getElementById("progress").textContent = `${done}/8`;
       }
 
-      function collectPayload() {
+      document.getElementById("submitBtn").onclick = async (e) => {
+        e.preventDefault();
         const payload = {};
         for (const name of fields) {
-          const v = getVal(name);
-          if (v !== null && !Number.isNaN(v)) payload[name] = v;
+          const value = form.querySelector(`[name="${name}"]`).value;
+          if (value !== "") payload[name] = Number(value);
         }
-        return payload;
-      }
 
-      function setStatus(text) {
-        statusEl.textContent = text || "";
-      }
-
-      function setOut(obj) {
-        out.textContent = JSON.stringify(obj, null, 2);
-      }
-
-      // Presets
-      const presetLow = {
-        LBXHGB: 130,
-        LBXMCVSI: 88,
-        LBXMCHSI: 29,
-        LBXRDW: 13.0,
-        LBXRBCSI: 4.5,
-        LBXHCT: 39,
-        RIDAGEYR: 30,
-        BMXHT: 165,
-        BMXWT: 60,
-        // optional rec:
-        BP_SYS: 115,
-        BP_DIA: 75,
-        LBXWBCSI: 6.0,
-        LBXPLTSI: 260
-      };
-
-      const presetHigh = {
-        LBXHGB: 10.5,
-        LBXMCVSI: 75,
-        LBXMC: 24,         // Добавь это
-        LBXMCHSI: 31,
-        LBXRDW: 16.5,
-        LBXRBCSI: 4.1,
-        LBXHCT: 33,
-        RIDAGEYR: 30,
-        BMXHT: 165,
-        BMXWT: 60,
-        BP_SYS: 110,
-        BP_DIA: 70,
-        LBXWBCSI: 7.5,
-        LBXPLTSI: 320
-      };
-
-      function fillPreset(p) {
-        for (const name of fields) setVal(name, null);
-        Object.entries(p).forEach(([k, v]) => setVal(k, v));
-        maybeAutoBMI();
-        updateProgress();
-        setStatus("Пример заполнен.");
-        setOut({});
-      }
-
-      document.getElementById("fillLowBtn").onclick = () => fillPreset(presetLow);
-      document.getElementById("fillHighBtn").onclick = () => fillPreset(presetHigh);
-      document.getElementById("clearBtn").onclick = () => {
-        for (const name of fields) setVal(name, null);
-        updateProgress();
-        setStatus("Очищено.");
-        setOut({});
-      };
-
-      document.getElementById("submitBtn").onclick = async () => {
-        setStatus("");
-        const payload = collectPayload();
-        const missing = resolveMissing(payload);
-
+        const missing = required.filter((n) => !(n in payload));
         if (missing.length) {
-          setOut({ status: "frontend_needs_input", missing_required_fields: missing });
-          setStatus("Нужно заполнить обязательные поля.");
+          document.getElementById("out").textContent = JSON.stringify({
+            status: "frontend_needs_input",
+            missing_required_fields: missing
+          }, null, 2);
           return;
         }
 
-        try {
-          const res = await fetch(API_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-
-          const text = await res.text();
-          let data;
-          try { data = JSON.parse(text); } catch { data = { raw: text }; }
-
-          setOut(data);
-          setStatus(res.ok ? "Готово." : `Ошибка API: ${res.status}`);
-        } catch (e) {
-          setOut({ error: String(e) });
-          setStatus("Не удалось достучаться до API (проверь, что api контейнер запущен).");
-        }
+        const res = await fetch("http://localhost:8000/v1/risk/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        document.getElementById("out").textContent = JSON.stringify(data, null, 2);
       };
 
       updateProgress();

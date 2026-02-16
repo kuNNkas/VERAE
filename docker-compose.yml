@@ -6,12 +6,10 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - MODEL_NAME=ironrisk_bi_29n_women18_49.cbm
-      - MODEL_PATH=/workspace/ironrisk_bi_29n_women18_49.cbm
-      - FEATURES_PATH=/workspace/train_data/features_29n.txt
+      - MODEL_NAME=ironrisk_bi_reg_29n.cbm
+      - MODEL_PATH=/workspace/ironrisk_bi_reg_29n.cbm
     volumes:
-      - ./backend:/app          # код API (rw!)
-      - ./:/workspace:ro        # артефакты/модель (ro ок)
+      - ./:/workspace:ro
 
   frontend:
     build:
