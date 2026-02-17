@@ -43,3 +43,7 @@ out/
 node_modules/
 .env.local
 .env*.local
+
+# Keep frontend source lib in git
+!frontend/src/lib/
+!frontend/src/lib/**
