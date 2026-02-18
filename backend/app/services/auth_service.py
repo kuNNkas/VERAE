@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.db.database import SessionLocal
 from app.db.models import User
+from app.core.observability import log_event
 from app.repositories.user_repository import UserRepository
 
 TOKEN_TTL_SECONDS = int(os.getenv("AUTH_TOKEN_TTL_SECONDS", "3600"))
@@ -166,6 +167,7 @@ def register_user(payload: RegisterRequest) -> AuthResponse:
     with SessionLocal() as session:
         repository = UserRepository(session)
         if repository.get_by_email(email):
+            log_event('auth_register_failed', reason='email_already_exists')
             raise ValueError("User with this email already exists")
 
         user = repository.create(
@@ -176,6 +178,8 @@ def register_user(payload: RegisterRequest) -> AuthResponse:
                 created_at=_now_utc(),
             )
         )
+
+    log_event('auth_register_success', user_id=user.id)
 
     return AuthResponse(
         access_token=_build_token(user.id, TOKEN_TTL_SECONDS),
@@ -192,7 +196,10 @@ def login_user(payload: LoginRequest) -> AuthResponse:
         user = repository.get_by_email(email)
 
     if user is None or not _verify_password(payload.password, user.password_hash):
+        log_event('auth_login_failed', reason='invalid_credentials')
         raise PermissionError("Invalid credentials")
+
+    log_event('auth_login_success', user_id=user.id)
 
     return AuthResponse(
         access_token=_build_token(user.id, TOKEN_TTL_SECONDS),

@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.core.observability import log_event
 from app.services.prediction_service import PredictRequest, PredictResponse, predict_payload
 
 router = APIRouter()
@@ -12,4 +13,11 @@ def health() -> dict[str, str]:
 
 @router.post('/v1/risk/predict', response_model=PredictResponse)
 def predict(payload: PredictRequest) -> PredictResponse:
-    return predict_payload(payload.model_dump())
+    response = predict_payload(payload.model_dump())
+    log_event(
+        'predict_called',
+        status=response.status,
+        confidence=response.confidence,
+        missing_required_fields_count=len(response.missing_required_fields),
+    )
+    return response

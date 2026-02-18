@@ -184,12 +184,26 @@ python -m pytest
 
 ---
 
-## Перед деплоем
+## 7) MVP-метрики (минимальный мониторинг)
 
-Короткий security checklist:
+Для первой версии продукта фиксируем три базовые продуктовые метрики:
 
-- [ ] Установлен `APP_ENV=prod`.
-- [ ] Заданы `AUTH_TOKEN_SECRET`, `AUTH_TOKEN_TTL_SECONDS`, `DATABASE_URL`, `CORS_ALLOW_ORIGINS`.
-- [ ] `CORS_ALLOW_ORIGINS` содержит только доверенные origin и не содержит `*`.
-- [ ] Проверено, что JWT подписывается `AUTH_TOKEN_SECRET` и не используются dev-значения.
-- [ ] Проверено, что токен не логируется и не выводится в UI/console на фронтенде.
+1. **Conversion registration → first analysis**
+   - Определение: доля пользователей, у которых после успешной регистрации создан хотя бы один анализ.
+   - Формула: `users_with_analysis / users_registered` за выбранный период.
+   - Источники событий: `auth_register_success`, `analysis_created`.
+
+2. **Median time to result**
+   - Определение: медианное время от `analysis_created` до `analysis_completed` со статусом `success`.
+   - Формула: `median(analysis_completed.ts - analysis_created.ts)`.
+   - Источники событий: `analysis_created`, `analysis_completed`.
+
+3. **% failed analyses**
+   - Определение: доля анализов, завершившихся ошибкой.
+   - Формула: `failed_analyses / all_completed_analyses * 100%`, где failed = `analysis_completed` со `status=failed`.
+   - Источники событий: `analysis_completed`.
+
+### Практические заметки
+
+- Для связки API-запроса и фоновой обработки используется `correlation_id=analysis_id`.
+- На фронте в MVP используется `console-first` телеметрия (события `form_submit_success`, `api_error`, `result_shown`) с future adapter в `frontend/src/lib/telemetry.ts`.

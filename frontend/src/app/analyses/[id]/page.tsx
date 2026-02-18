@@ -8,6 +8,7 @@ import { AuthGuard } from "@/components/auth-guard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { trackEvent } from "@/lib/telemetry";
 
 const POLL_INTERVAL_MS = 1500;
 const POLL_TIMEOUT_MS = 75000;
@@ -58,6 +59,12 @@ export default function AnalysisStatusPage() {
     },
     enabled: !!id,
   });
+
+  useEffect(() => {
+    if (error) {
+      trackEvent("api_error", { source: "analysis_status", analysis_id: id, message: error.message });
+    }
+  }, [error, id]);
 
   useEffect(() => {
     if (data?.status === "completed") {

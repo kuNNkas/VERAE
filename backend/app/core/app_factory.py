@@ -1,12 +1,16 @@
 import os
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import Response
 
 from app.api.v1.analyses import router as analyses_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.predict import router as predict_router
+from app.core.observability import generate_correlation_id, reset_correlation_id, set_correlation_id
 from app.db.database import init_db
 
 
@@ -51,6 +55,7 @@ def create_app() -> FastAPI:
         yield
 
     app = FastAPI(title='VERAE B2C API', version='0.3.0', lifespan=lifespan)
+    logging.basicConfig(level=os.getenv('LOG_LEVEL', 'INFO'))
     cors_origins = _resolve_cors_origins()
 
     app.add_middleware(
@@ -60,6 +65,17 @@ def create_app() -> FastAPI:
         allow_methods=['*'],
         allow_headers=['*'],
     )
+
+    @app.middleware('http')
+    async def correlation_middleware(request: Request, call_next) -> Response:
+        correlation_id = request.headers.get('x-correlation-id') or request.headers.get('x-request-id') or generate_correlation_id()
+        token = set_correlation_id(correlation_id)
+        try:
+            response = await call_next(request)
+        finally:
+            reset_correlation_id(token)
+        response.headers['x-correlation-id'] = correlation_id
+        return response
 
     app.include_router(auth_router)
     app.include_router(analyses_router)

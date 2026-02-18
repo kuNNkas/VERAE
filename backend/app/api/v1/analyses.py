@@ -41,7 +41,7 @@ def create_analysis_endpoint(
     current_user: UserRecord = Depends(get_current_user),
 ) -> CreateAnalysisResponse:
     response = create_analysis(current_user.id, payload)
-    background_tasks.add_task(process_analysis_job, response.analysis_id)
+    background_tasks.add_task(process_analysis_job, response.analysis_id, response.analysis_id)
     return response
 
 

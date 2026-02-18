@@ -9,6 +9,7 @@ import { useMutation } from "@tanstack/react-query";
 import { labFormSchema, REQUIRED_BASE, BMI_ALTERNATIVE, RECOMMENDED, type LabFormValues } from "@/lib/schemas";
 import { createAnalysis, getApiErrorMessage } from "@/lib/api";
 import { setLastAnalysisId, getLastAnalysisId, clearToken } from "@/lib/auth";
+import { trackEvent } from "@/lib/telemetry";
 import { AuthGuard } from "@/components/auth-guard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,10 +48,12 @@ export default function FormPage() {
     },
     onSuccess: (data) => {
       setLastAnalysisId(data.analysis_id);
+      trackEvent("form_submit_success", { analysis_id: data.analysis_id });
       router.push(`/analyses/${data.analysis_id}`);
     },
-    onError: (err: unknown) => {
-      form.setError("root", { message: getApiErrorMessage(err, "Не удалось создать анализ. Попробуйте снова.") });
+    onError: (err: Error) => {
+      trackEvent("api_error", { source: "form_submit", message: err.message });
+      form.setError("root", { message: err.message });
     },
   });
 

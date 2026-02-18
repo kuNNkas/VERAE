@@ -3,7 +3,8 @@
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { getAnalysisStatus, getAnalysisResult, getApiErrorMessage } from "@/lib/api";
+import { useEffect, useRef } from "react";
+import { getAnalysisStatus, getAnalysisResult } from "@/lib/api";
 import { AuthGuard } from "@/components/auth-guard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +18,7 @@ import {
   Cell,
 } from "recharts";
 import { ArrowDown, ArrowUp } from "lucide-react";
+import { trackEvent } from "@/lib/telemetry";
 
 const IRON_INDEX_MIN = -10;
 const IRON_INDEX_MAX = 15;
@@ -24,6 +26,7 @@ const IRON_INDEX_MAX = 15;
 export default function AnalysisResultPage() {
   const params = useParams();
   const id = params.id as string;
+  const shownRef = useRef(false);
 
   const statusQuery = useQuery({
     queryKey: ["analysis-status", id],
@@ -40,6 +43,23 @@ export default function AnalysisResultPage() {
   const status = statusQuery.data?.status;
   const result = resultQuery.data;
   const error = statusQuery.error ?? resultQuery.error;
+
+  useEffect(() => {
+    if (error) {
+      trackEvent("api_error", { source: "analysis_result", analysis_id: id, message: error.message });
+    }
+  }, [error, id]);
+
+  useEffect(() => {
+    if (!shownRef.current && status === "completed" && result) {
+      trackEvent("result_shown", {
+        analysis_id: id,
+        risk_tier: result.risk_tier,
+        confidence: result.confidence,
+      });
+      shownRef.current = true;
+    }
+  }, [id, result, status]);
 
   if (statusQuery.isPending && !statusQuery.data) {
     return (
