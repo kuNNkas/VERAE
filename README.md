@@ -172,3 +172,29 @@ python -m pytest
 ```
 
 Команда работает как из корня репозитория (через `pytest.ini` в корне), так и из каталога `backend/` (через `backend/pytest.ini`).
+
+---
+
+## 7) MVP-метрики (минимальный мониторинг)
+
+Для первой версии продукта фиксируем три базовые продуктовые метрики:
+
+1. **Conversion registration → first analysis**
+   - Определение: доля пользователей, у которых после успешной регистрации создан хотя бы один анализ.
+   - Формула: `users_with_analysis / users_registered` за выбранный период.
+   - Источники событий: `auth_register_success`, `analysis_created`.
+
+2. **Median time to result**
+   - Определение: медианное время от `analysis_created` до `analysis_completed` со статусом `success`.
+   - Формула: `median(analysis_completed.ts - analysis_created.ts)`.
+   - Источники событий: `analysis_created`, `analysis_completed`.
+
+3. **% failed analyses**
+   - Определение: доля анализов, завершившихся ошибкой.
+   - Формула: `failed_analyses / all_completed_analyses * 100%`, где failed = `analysis_completed` со `status=failed`.
+   - Источники событий: `analysis_completed`.
+
+### Практические заметки
+
+- Для связки API-запроса и фоновой обработки используется `correlation_id=analysis_id`.
+- На фронте в MVP используется `console-first` телеметрия (события `form_submit_success`, `api_error`, `result_shown`) с future adapter в `frontend/src/lib/telemetry.ts`.

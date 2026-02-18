@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel
 
+from app.core.observability import log_event, reset_correlation_id, set_correlation_id
 from app.services.prediction_service import PredictRequest, PredictResponse, predict_payload
 
 
@@ -65,16 +66,23 @@ class AnalysisRecord:
 _ANALYSES: dict[str, AnalysisRecord] = {}
 
 
-def process_analysis_job(analysis_id: str) -> None:
+def process_analysis_job(analysis_id: str, correlation_id: str | None = None) -> None:
     """Run model inference in background and store result. Sets status to completed or failed."""
+    token = set_correlation_id(correlation_id or analysis_id)
     record = _ANALYSES.get(analysis_id)
     if record is None:
+        log_event('analysis_job_missing', analysis_id=analysis_id)
+        reset_correlation_id(token)
         return
     if not record.lab:
         record.status = "failed"
         record.progress_stage = "failed"
         record.updated_at = _now_iso()
+        log_event('analysis_completed', analysis_id=analysis_id, status='failed', reason='empty_lab_payload')
+        reset_correlation_id(token)
         return
+
+    log_event('analysis_processing_started', analysis_id=analysis_id)
     record.status = "processing"
     record.progress_stage = "model_inference"
     record.updated_at = _now_iso()
@@ -83,10 +91,13 @@ def process_analysis_job(analysis_id: str) -> None:
         record.result = result
         record.status = "completed"
         record.progress_stage = "completed"
+        log_event('analysis_completed', analysis_id=analysis_id, status='success', result_status=result.status)
     except Exception:
         record.status = "failed"
         record.progress_stage = "failed"
+        log_event('analysis_completed', analysis_id=analysis_id, status='failed')
     record.updated_at = _now_iso()
+    reset_correlation_id(token)
 
 
 def create_analysis(user_id: str, payload: CreateAnalysisRequest) -> CreateAnalysisResponse:
@@ -105,6 +116,13 @@ def create_analysis(user_id: str, payload: CreateAnalysisRequest) -> CreateAnaly
         lab=lab_dict,
     )
     _ANALYSES[analysis_id] = record
+    log_event(
+        'analysis_created',
+        analysis_id=analysis_id,
+        user_id=user_id,
+        correlation_id=analysis_id,
+        upload_source=payload.upload.source,
+    )
 
     return CreateAnalysisResponse(
         analysis_id=analysis_id,
