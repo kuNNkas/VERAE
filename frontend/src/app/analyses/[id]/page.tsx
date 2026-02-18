@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getAnalysisStatus, type AnalysisStatus, getApiErrorMessage } from "@/lib/api";
 import { AuthGuard } from "@/components/auth-guard";
@@ -64,6 +64,17 @@ export default function AnalysisStatusPage() {
       router.replace(`/analyses/${id}/result`);
     }
   }, [data?.status, id, router]);
+
+  const elapsed = typeof window !== "undefined" ? Date.now() - startRef.current : 0;
+  const timedOut = elapsed >= POLL_TIMEOUT_MS && data?.status !== "completed" && data?.status !== "failed";
+
+  const failureMessage = useMemo(() => {
+    if (!data || data.status !== "failed") return null;
+    if (data.failure_diagnostic === "inference_error") {
+      return "Обработка завершилась с ошибкой модели. Попробуйте загрузить анализ снова.";
+    }
+    return "Обработка завершилась с ошибкой.";
+  }, [data]);
 
   if (data === null && !isPending) {
     return (

@@ -25,8 +25,9 @@ export type AnalysisItem = {
 export type AnalysisStatusResponse = {
   analysis_id: string;
   status: AnalysisStatus;
-  progress_stage: ProgressStage;
-  error_code: string | null;
+  progress_stage?: string | null;
+  error_code?: string | null;
+  failure_diagnostic?: string | null;
   updated_at: string;
 };
 

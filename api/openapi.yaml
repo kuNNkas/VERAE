@@ -355,7 +355,12 @@ components:
           type: string
           format: uuid
         status:
-          $ref: '#/components/schemas/AnalysisStatus'
+          type: string
+          enum:
+          - pending
+          - processing
+          - completed
+          - failed
         created_at:
           type: string
           format: date-time
@@ -386,6 +391,7 @@ components:
       - status
       - progress_stage
       - error_code
+      - failure_diagnostic
       - updated_at
       properties:
         analysis_id:
@@ -399,6 +405,10 @@ components:
           type: string
           nullable: true
           description: Stable machine-readable error code for failed analyses
+        failure_diagnostic:
+          type: string
+          nullable: true
+          description: Non-sensitive diagnostic hint for failed analyses
         updated_at:
           type: string
           format: date-time
@@ -420,7 +430,7 @@ components:
     AnalysisStatus:
       type: string
       enum:
-      - queued
+      - pending
       - processing
       - completed
       - failed
