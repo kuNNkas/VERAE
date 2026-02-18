@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.db.database import init_db
+from app.services import analyses_service
 from app.services.analyses_service import process_analysis_job
 
 
@@ -184,3 +185,126 @@ def test_predict_scenario_without_bmi_or_hw_returns_needs_input() -> None:
     _assert_matches_schema(contract, body, _schema_for_status(contract, "/v1/risk/predict", "post", "200"))
     assert body["status"] == "needs_input"
     assert body["missing_required_fields"] == ["BMXBMI_or_BMXHT_BMXWT"]
+
+
+def test_e2e_analysis_failed_job_exposes_diagnostic_and_blocks_result() -> None:
+    init_db()
+    client = TestClient(app)
+
+    register_response = client.post(
+        "/auth/register",
+        json={"email": _unique_email(), "password": "password123"},
+    )
+    assert register_response.status_code == 201
+    headers = {"Authorization": f"Bearer {register_response.json()['access_token']}"}
+
+    create_response = client.post(
+        "/analyses",
+        json={
+            "upload": {
+                "filename": "report.pdf",
+                "content_type": "application/pdf",
+                "size_bytes": 128000,
+                "source": "web",
+            },
+            "lab": _base_predict_payload() | {"BMXBMI": 22.5},
+        },
+        headers=headers,
+    )
+    assert create_response.status_code == 202
+    analysis_id = create_response.json()["analysis_id"]
+
+    analyses_service._ANALYSES[analysis_id].status = "pending"
+    analyses_service._ANALYSES[analysis_id].progress_stage = "queued"
+    analyses_service._ANALYSES[analysis_id].result = None
+
+    original_predict = analyses_service.predict_payload
+    try:
+        def _boom(_payload: dict):
+            raise RuntimeError("simulated inference failure")
+
+        analyses_service.predict_payload = _boom
+        process_analysis_job(analysis_id)
+    finally:
+        analyses_service.predict_payload = original_predict
+
+    status_response = client.get(f"/analyses/{analysis_id}", headers=headers)
+    assert status_response.status_code == 200
+    status_body = status_response.json()
+    assert status_body["status"] == "failed"
+    assert status_body["error_code"] == "inference_error"
+    assert status_body["failure_diagnostic"] == "inference_error"
+
+    result_response = client.get(f"/analyses/{analysis_id}/result", headers=headers)
+    assert result_response.status_code == 409
+
+
+def test_e2e_analysis_result_before_completion_returns_409() -> None:
+    init_db()
+    client = TestClient(app)
+
+    register_response = client.post(
+        "/auth/register",
+        json={"email": _unique_email(), "password": "password123"},
+    )
+    assert register_response.status_code == 201
+    headers = {"Authorization": f"Bearer {register_response.json()['access_token']}"}
+
+    create_response = client.post(
+        "/analyses",
+        json={
+            "upload": {
+                "filename": "report.pdf",
+                "content_type": "application/pdf",
+                "size_bytes": 128000,
+                "source": "web",
+            },
+            "lab": _base_predict_payload() | {"BMXBMI": 22.5},
+        },
+        headers=headers,
+    )
+    assert create_response.status_code == 202
+    analysis_id = create_response.json()["analysis_id"]
+
+    analyses_service._ANALYSES[analysis_id].status = "processing"
+    analyses_service._ANALYSES[analysis_id].progress_stage = "model_inference"
+
+    result_response = client.get(f"/analyses/{analysis_id}/result", headers=headers)
+    assert result_response.status_code == 409
+
+
+def test_e2e_analysis_success_job_flow() -> None:
+    init_db()
+    client = TestClient(app)
+
+    register_response = client.post(
+        "/auth/register",
+        json={"email": _unique_email(), "password": "password123"},
+    )
+    assert register_response.status_code == 201
+    headers = {"Authorization": f"Bearer {register_response.json()['access_token']}"}
+
+    create_response = client.post(
+        "/analyses",
+        json={
+            "upload": {
+                "filename": "report.pdf",
+                "content_type": "application/pdf",
+                "size_bytes": 128000,
+                "source": "web",
+            },
+            "lab": _base_predict_payload() | {"BMXBMI": 22.5},
+        },
+        headers=headers,
+    )
+    assert create_response.status_code == 202
+    analysis_id = create_response.json()["analysis_id"]
+
+    process_analysis_job(analysis_id)
+
+    status_response = client.get(f"/analyses/{analysis_id}", headers=headers)
+    assert status_response.status_code == 200
+    assert status_response.json()["status"] == "completed"
+
+    result_response = client.get(f"/analyses/{analysis_id}/result", headers=headers)
+    assert result_response.status_code == 200
