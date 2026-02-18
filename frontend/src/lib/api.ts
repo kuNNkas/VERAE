@@ -4,7 +4,16 @@ type ApiErrorPayload = {
   detail?: string | { message?: string };
 };
 
-export type AnalysisStatus = "pending" | "processing" | "completed" | "failed";
+export type AnalysisStatus = "queued" | "processing" | "completed" | "failed";
+
+export type ProgressStage =
+  | "queued"
+  | "validating_input"
+  | "preprocessing"
+  | "model_inference"
+  | "postprocessing"
+  | "completed"
+  | "failed";
 
 export type AnalysisItem = {
   analysis_id: string;
@@ -15,19 +24,77 @@ export type AnalysisItem = {
 export type AnalysisStatusResponse = {
   analysis_id: string;
   status: AnalysisStatus;
-  progress_stage?: string | null;
-  created_at: string;
+  progress_stage: ProgressStage;
+  error_code: string | null;
   updated_at: string;
 };
 
-export type PredictResponse = {
-  status?: "ok" | "needs_input";
-  iron_index?: number;
-  risk_percent?: number;
-  risk_tier?: "HIGH" | "WARNING" | "GRAY" | "LOW";
-  clinical_action?: string;
-  confidence?: "high" | "medium" | "low";
-  explanations?: Array<{ feature?: string; label?: string; text?: string; direction?: string }>;
+export type PredictExplanation = {
+  feature: string;
+  label: string;
+  impact: number;
+  direction: "negative" | "positive";
+  text: string;
+};
+
+export type PredictResponseOk = {
+  status: "ok";
+  confidence: "low" | "medium" | "high";
+  model_name: string;
+  missing_required_fields: string[];
+  iron_index: number;
+  risk_percent: number;
+  risk_tier: "HIGH" | "WARNING" | "GRAY" | "LOW";
+  clinical_action: string;
+  explanations: PredictExplanation[];
+};
+
+export type PredictResponseNeedsInput = {
+  status: "needs_input";
+  confidence: "low";
+  model_name: string;
+  missing_required_fields: string[];
+  iron_index: null;
+  risk_percent: null;
+  risk_tier: null;
+  clinical_action: null;
+  explanations: PredictExplanation[];
+};
+
+export type PredictResponse = PredictResponseOk | PredictResponseNeedsInput;
+
+export type UserInfo = {
+  id: string;
+  email: string;
+  created_at: string;
+};
+
+export type AuthResponse = {
+  access_token: string;
+  token_type: "Bearer";
+  expires_in: number;
+  user: UserInfo;
+};
+
+export type UploadMetadata = {
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  checksum_sha256?: string;
+  source?: string;
+};
+
+export type CreateAnalysisResponse = {
+  analysis_id: string;
+  user_id: string;
+  status: AnalysisStatus;
+  progress_stage: ProgressStage;
+  job: {
+    id: string;
+    status: "queued";
+  };
+  created_at: string;
+  updated_at: string;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -46,7 +113,7 @@ async function parseError(response: Response, fallback: string): Promise<never> 
   throw new Error(message);
 }
 
-export async function login(email: string, password: string) {
+export async function login(email: string, password: string): Promise<AuthResponse> {
   const response = await fetch(`${API_BASE}/auth/login`, {
     method: "POST",
     headers: jsonHeaders(),
@@ -57,10 +124,10 @@ export async function login(email: string, password: string) {
     await parseError(response, "Login failed");
   }
 
-  return response.json() as Promise<{ access_token: string }>;
+  return response.json() as Promise<AuthResponse>;
 }
 
-export async function register(email: string, password: string) {
+export async function register(email: string, password: string): Promise<AuthResponse> {
   const response = await fetch(`${API_BASE}/auth/register`, {
     method: "POST",
     headers: jsonHeaders(),
@@ -71,10 +138,13 @@ export async function register(email: string, password: string) {
     await parseError(response, "Registration failed");
   }
 
-  return response.json() as Promise<{ access_token: string }>;
+  return response.json() as Promise<AuthResponse>;
 }
 
-export async function createAnalysis(upload: Record<string, unknown>, lab: Record<string, number>) {
+export async function createAnalysis(
+  upload: UploadMetadata,
+  lab: Record<string, number>,
+): Promise<CreateAnalysisResponse> {
   const response = await fetchWithAuth(`${API_BASE}/analyses`, {
     method: "POST",
     headers: jsonHeaders(),
@@ -85,7 +155,7 @@ export async function createAnalysis(upload: Record<string, unknown>, lab: Recor
     await parseError(response, "Create analysis failed");
   }
 
-  return response.json() as Promise<{ analysis_id: string }>;
+  return response.json() as Promise<CreateAnalysisResponse>;
 }
 
 export async function listAnalyses() {
