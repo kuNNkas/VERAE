@@ -357,7 +357,7 @@ components:
         status:
           type: string
           enum:
-          - queued
+          - pending
           - processing
           - completed
           - failed
@@ -383,9 +383,7 @@ components:
           type: string
           format: uuid
         status:
-          type: string
-          enum:
-          - queued
+          $ref: '#/components/schemas/QueuedStatus'
     AnalysisStatusResponse:
       type: object
       required:
@@ -393,6 +391,7 @@ components:
       - status
       - progress_stage
       - error_code
+      - failure_diagnostic
       - updated_at
       properties:
         analysis_id:
@@ -406,6 +405,10 @@ components:
           type: string
           nullable: true
           description: Stable machine-readable error code for failed analyses
+        failure_diagnostic:
+          type: string
+          nullable: true
+          description: Non-sensitive diagnostic hint for failed analyses
         updated_at:
           type: string
           format: date-time
@@ -415,16 +418,47 @@ components:
       - status
       properties:
         status:
-          type: string
-          enum:
-          - ok
-    AnalysisStatus:
+          $ref: '#/components/schemas/HealthStatus'
+    HealthStatus:
+      type: string
+      enum:
+      - ok
+    QueuedStatus:
       type: string
       enum:
       - queued
+    AnalysisStatus:
+      type: string
+      enum:
+      - pending
       - processing
       - completed
       - failed
+    PredictStatusOk:
+      type: string
+      enum:
+      - ok
+    PredictStatusNeedsInput:
+      type: string
+      enum:
+      - needs_input
+    ConfidenceLevel:
+      type: string
+      enum:
+      - low
+      - medium
+      - high
+    ConfidenceLow:
+      type: string
+      enum:
+      - low
+    RiskTier:
+      type: string
+      enum:
+      - HIGH
+      - WARNING
+      - GRAY
+      - LOW
     ProgressStage:
       type: string
       enum:
@@ -541,15 +575,9 @@ components:
       additionalProperties: false
       properties:
         status:
-          type: string
-          enum:
-          - ok
+          $ref: '#/components/schemas/PredictStatusOk'
         confidence:
-          type: string
-          enum:
-          - low
-          - medium
-          - high
+          $ref: '#/components/schemas/ConfidenceLevel'
         model_name:
           type: string
         missing_required_fields:
@@ -561,12 +589,7 @@ components:
         risk_percent:
           type: number
         risk_tier:
-          type: string
-          enum:
-          - HIGH
-          - WARNING
-          - GRAY
-          - LOW
+          $ref: '#/components/schemas/RiskTier'
         clinical_action:
           type: string
         explanations:
@@ -588,13 +611,9 @@ components:
       additionalProperties: false
       properties:
         status:
-          type: string
-          enum:
-          - needs_input
+          $ref: '#/components/schemas/PredictStatusNeedsInput'
         confidence:
-          type: string
-          enum:
-          - low
+          $ref: '#/components/schemas/ConfidenceLow'
         model_name:
           type: string
         missing_required_fields:
@@ -610,6 +629,11 @@ components:
           nullable: true
         risk_tier:
           type: string
+          enum:
+          - HIGH
+          - WARNING
+          - GRAY
+          - LOW
           nullable: true
         clinical_action:
           type: string

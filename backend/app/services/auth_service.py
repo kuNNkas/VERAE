@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import time
 import uuid
 from dataclasses import dataclass
@@ -9,7 +10,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException, status
 from jose import JWTError, ExpiredSignatureError, jwt
 from passlib.context import CryptContext
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.db.database import SessionLocal
 from app.db.models import User
@@ -19,6 +20,10 @@ from app.repositories.user_repository import UserRepository
 TOKEN_TTL_SECONDS = int(os.getenv("AUTH_TOKEN_TTL_SECONDS", "3600"))
 TOKEN_SECRET = os.getenv("AUTH_TOKEN_SECRET", "dev-secret-change-me")
 TOKEN_ALGORITHM = os.getenv("AUTH_TOKEN_ALGORITHM", "HS256")
+APP_ENV = os.getenv("APP_ENV", "dev").strip().lower()
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+PASSWORD_RE = re.compile(r"^(?=.*[A-Za-z])(?=.*\d).{8,128}$")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -27,10 +32,40 @@ class RegisterRequest(BaseModel):
     email: str
     password: str = Field(min_length=8)
 
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        email = value.strip().lower()
+        if not EMAIL_RE.fullmatch(email):
+            raise ValueError("Invalid email format")
+        return email
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        if not PASSWORD_RE.fullmatch(value):
+            raise ValueError("Password must be 8-128 chars and include letters and digits")
+        return value
+
 
 class LoginRequest(BaseModel):
     email: str
     password: str
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        email = value.strip().lower()
+        if not EMAIL_RE.fullmatch(email):
+            raise ValueError("Invalid email format")
+        return email
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_not_empty(cls, value: str) -> str:
+        if not value:
+            raise ValueError("Password is required")
+        return value
 
 
 class UserInfo(BaseModel):
@@ -82,8 +117,19 @@ def _build_token(user_id: str, expires_in: int) -> str:
 
 
 def decode_token(token: str) -> UserRecord:
+    if APP_ENV == "prod" and TOKEN_SECRET == "dev-secret-change-me":
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error_code": "auth_misconfigured", "message": "Auth is misconfigured"},
+        )
+
     try:
-        payload = jwt.decode(token, TOKEN_SECRET, algorithms=[TOKEN_ALGORITHM])
+        payload = jwt.decode(
+            token,
+            TOKEN_SECRET,
+            algorithms=[TOKEN_ALGORITHM],
+            options={"require_sub": True, "require_iat": True, "require_exp": True},
+        )
     except ExpiredSignatureError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

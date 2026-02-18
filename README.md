@@ -68,6 +68,15 @@ CORS настраивается через переменные окружени
 - `AUTH_TOKEN_ALGORITHM` — алгоритм подписи JWT (по умолчанию `HS256`).
 - `DATABASE_URL` — строка подключения SQLAlchemy (`sqlite:///./verae.db` по умолчанию, поддерживается PostgreSQL).
 
+### Обязательные production-переменные
+
+Для production **обязательно** задать (см. пример в `.env.prod.example`):
+
+- `AUTH_TOKEN_SECRET` — сильный секрет JWT без дефолтного значения.
+- `AUTH_TOKEN_TTL_SECONDS` — время жизни access token в секундах.
+- `DATABASE_URL` — строка подключения к production-БД.
+- `CORS_ALLOW_ORIGINS` — строгий allowlist origin (через запятую, без `*`).
+
 
 Порядок фичей в backend зафиксирован строго:
 
@@ -105,7 +114,7 @@ MVP-логин пользователя. Возвращает access token и п
 
 ### `POST /analyses`
 
-Создаёт analysis job для авторизованного пользователя (`Authorization: Bearer <token>`). В теле обязательны `upload` (метаданные) и `lab` (те же поля, что в `POST /v1/risk/predict`). Обработка запускается в фоне (BackgroundTasks); через 1–2 с при повторном опросе `GET /analyses/{id}` статус станет `completed`, после чего `GET /analyses/{id}/result` вернёт результат в формате Predict.
+Создаёт analysis job для авторизованного пользователя (`Authorization: Bearer <token>`). В теле обязательны `upload` (метаданные) и `lab` (те же поля, что в `POST /v1/risk/predict`). Обработка запускается в фоне (BackgroundTasks); сразу после создания статус — `pending`, затем при повторном опросе `GET /analyses/{id}` он перейдёт в `processing` и затем в `completed` (или `failed`), после чего `GET /analyses/{id}/result` вернёт результат в формате Predict.
 
 ### `GET /analyses/{id}`
 

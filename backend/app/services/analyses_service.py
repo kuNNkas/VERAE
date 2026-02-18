@@ -47,6 +47,7 @@ class AnalysisStatusResponse(BaseModel):
     status: str
     progress_stage: str
     error_code: str | None = None
+    failure_diagnostic: str | None = None
     updated_at: str
 
 
@@ -61,9 +62,30 @@ class AnalysisRecord:
     upload: UploadMetadata
     lab: dict
     result: PredictResponse | None = None
+    error_message: str | None = None
+    failure_reason: str | None = None
 
 
 _ANALYSES: dict[str, AnalysisRecord] = {}
+
+_ALLOWED_TRANSITIONS: dict[str, set[str]] = {
+    "pending": {"processing"},
+    "processing": {"completed", "failed"},
+    "completed": set(),
+    "failed": set(),
+}
+
+
+def _set_status(record: AnalysisRecord, next_status: str, *, progress_stage: str, error_message: str | None = None, failure_reason: str | None = None) -> None:
+    if next_status != record.status:
+        allowed = _ALLOWED_TRANSITIONS.get(record.status, set())
+        if next_status not in allowed:
+            raise ValueError(f"Invalid status transition: {record.status} -> {next_status}")
+    record.status = next_status
+    record.progress_stage = progress_stage
+    record.error_message = error_message
+    record.failure_reason = failure_reason
+    record.updated_at = _now_iso()
 
 
 def process_analysis_job(analysis_id: str, correlation_id: str | None = None) -> None:
@@ -108,7 +130,7 @@ def create_analysis(user_id: str, payload: CreateAnalysisRequest) -> CreateAnaly
     record = AnalysisRecord(
         analysis_id=analysis_id,
         user_id=user_id,
-        status="queued",
+        status="pending",
         progress_stage="queued",
         created_at=now,
         updated_at=now,
@@ -127,7 +149,7 @@ def create_analysis(user_id: str, payload: CreateAnalysisRequest) -> CreateAnaly
     return CreateAnalysisResponse(
         analysis_id=analysis_id,
         user_id=user_id,
-        status="queued",
+        status="pending",
         progress_stage="queued",
         job=JobInfo(id=job_id, status="queued"),
         created_at=now,
@@ -144,7 +166,8 @@ def get_analysis_status(user_id: str, analysis_id: str) -> AnalysisStatusRespons
         analysis_id=record.analysis_id,
         status=record.status,
         progress_stage=record.progress_stage,
-        error_code=None,
+        error_code=record.failure_reason if record.status == "failed" else None,
+        failure_diagnostic=record.failure_reason if record.status == "failed" else None,
         updated_at=record.updated_at,
     )
 
@@ -160,15 +183,14 @@ def advance_analysis_state(
     if record is None or record.user_id != user_id:
         return None
 
-    record.status = status
-    record.progress_stage = progress_stage or status
-    record.updated_at = _now_iso()
+    _set_status(record, status, progress_stage=progress_stage or status)
 
     return AnalysisStatusResponse(
         analysis_id=record.analysis_id,
         status=record.status,
         progress_stage=record.progress_stage,
-        error_code=None,
+        error_code=record.failure_reason if record.status == "failed" else None,
+        failure_diagnostic=record.failure_reason if record.status == "failed" else None,
         updated_at=record.updated_at,
     )
 
