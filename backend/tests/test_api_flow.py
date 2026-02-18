@@ -7,7 +7,14 @@ from jose import jwt
 from app.main import app
 from app.db.database import SessionLocal, init_db
 from app.db.models import User
-from app.services.analyses_service import process_analysis_job
+from app.services.analyses_service import (
+    _ANALYSES,
+    CreateAnalysisRequest,
+    UploadMetadata,
+    create_analysis,
+    process_analysis_job,
+)
+from app.services import auth_service
 
 
 def _unique_email() -> str:
@@ -214,3 +221,55 @@ def test_predict_endpoint_works_with_si_inputs() -> None:
     assert body["status"] == "ok"
     assert body["risk_tier"] in {"HIGH", "WARNING", "GRAY", "LOW"}
     assert isinstance(body.get("explanations"), list)
+
+
+def test_failed_job_status_has_error_diagnostics() -> None:
+    client = TestClient(app)
+    _clean_users()
+
+    register = client.post(
+        "/auth/register",
+        json={"email": _unique_email(), "password": "password123"},
+    )
+    assert register.status_code == 201
+    token = register.json()["access_token"]
+    user_id = register.json()["user"]["id"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    response = create_analysis(
+        user_id,
+        CreateAnalysisRequest(
+            upload=UploadMetadata(
+                filename="manual.json",
+                content_type="application/json",
+                size_bytes=10,
+                source="web",
+            ),
+            lab=_lab_payload(),
+        ),
+    )
+    analysis_id = response.analysis_id
+
+    # Simulate broken payload before worker processing.
+    _ANALYSES[analysis_id].lab = {}
+    process_analysis_job(analysis_id)
+
+    status_resp = client.get(f"/analyses/{analysis_id}", headers=headers)
+    assert status_resp.status_code == 200
+    body = status_resp.json()
+    assert body["status"] == "failed"
+    assert body["error_code"] == "missing_lab_payload"
+    assert body["failure_diagnostic"] == "Empty lab payload"
+
+
+def test_reject_dev_secret_in_prod(monkeypatch) -> None:
+    _clean_users()
+    client = TestClient(app)
+
+    monkeypatch.setenv("APP_ENV", "prod")
+    monkeypatch.setattr(auth_service, "TOKEN_SECRET", "dev-secret-change-me")
+
+    register = client.post("/auth/register", json={"email": _unique_email(), "password": "password123"})
+    assert register.status_code == 500
+    body = register.json()
+    assert body["detail"]["error_code"] == "auth_misconfigured"

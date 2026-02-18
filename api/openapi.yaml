@@ -406,6 +406,10 @@ components:
           type: string
           nullable: true
           description: Stable machine-readable error code for failed analyses
+        failure_diagnostic:
+          type: string
+          nullable: true
+          description: Human-readable diagnostic message for failed analyses
         updated_at:
           type: string
           format: date-time

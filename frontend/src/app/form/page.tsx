@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const ALL_FIELDS = [...new Set([...REQUIRED_BASE, ...BMI_ALTERNATIVE, ...RECOMMENDED])] as const;
+const ALL_FIELDS = Array.from(new Set([...REQUIRED_BASE, ...BMI_ALTERNATIVE, ...RECOMMENDED])) as readonly string[];
 const REQUIRED_SET = new Set([...REQUIRED_BASE, ...BMI_ALTERNATIVE]);
 
 export default function FormPage() {
@@ -34,7 +34,7 @@ export default function FormPage() {
       for (const k of ALL_FIELDS) {
         const v = values[k as keyof LabFormValues];
         const num = typeof v === "number" ? v : Number(v);
-        if (v != null && v !== "" && !Number.isNaN(num)) lab[k] = num;
+        if (v != null && !Number.isNaN(num)) lab[k] = num;
       }
       const labJson = JSON.stringify(lab);
       const upload = {

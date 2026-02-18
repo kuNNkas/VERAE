@@ -70,7 +70,18 @@ def _verify_password(password: str, password_hash: str) -> bool:
     return pwd_context.verify(password, password_hash)
 
 
+
+
+def _ensure_token_configured() -> None:
+    app_env = os.getenv("APP_ENV", "dev").strip().lower()
+    if app_env == "prod" and TOKEN_SECRET == "dev-secret-change-me":
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error_code": "auth_misconfigured", "message": "AUTH_TOKEN_SECRET must be set in production"},
+        )
+
 def _build_token(user_id: str, expires_in: int) -> str:
+    _ensure_token_configured()
     now = int(time.time())
     payload = {
         "sub": user_id,
@@ -81,6 +92,7 @@ def _build_token(user_id: str, expires_in: int) -> str:
 
 
 def decode_token(token: str) -> UserRecord:
+    _ensure_token_configured()
     try:
         payload = jwt.decode(token, TOKEN_SECRET, algorithms=[TOKEN_ALGORITHM])
     except ExpiredSignatureError as exc:
