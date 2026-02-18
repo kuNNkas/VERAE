@@ -2,6 +2,7 @@ import { fetchWithAuth } from "@/lib/auth";
 
 type ApiErrorPayload = {
   detail?: string | { message?: string };
+  message?: string;
 };
 
 export type AnalysisStatus = "pending" | "processing" | "completed" | "failed";
@@ -41,9 +42,17 @@ async function parseError(response: Response, fallback: string): Promise<never> 
   const message =
     typeof body.detail === "string"
       ? body.detail
-      : body.detail?.message ?? fallback;
+      : body.detail?.message ?? body.message ?? fallback;
 
   throw new Error(message);
+}
+
+export function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return fallback;
 }
 
 export async function login(email: string, password: string) {

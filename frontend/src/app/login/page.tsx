@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
 import { loginSchema } from "@/lib/schemas";
-import { login } from "@/lib/api";
+import { getApiErrorMessage, login } from "@/lib/api";
 import { setToken } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,8 +27,8 @@ export default function LoginPage() {
       setToken(data.access_token);
       router.push("/form");
     },
-    onError: (err: Error) => {
-      setError("root", { message: err.message });
+    onError: (err: unknown) => {
+      setError("root", { message: getApiErrorMessage(err, "Не удалось войти. Попробуйте снова.") });
     },
   });
 

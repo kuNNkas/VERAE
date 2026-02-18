@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { getAnalysisStatus, getAnalysisResult } from "@/lib/api";
+import { getAnalysisStatus, getAnalysisResult, getApiErrorMessage } from "@/lib/api";
 import { AuthGuard } from "@/components/auth-guard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -105,7 +105,7 @@ export default function AnalysisResultPage() {
         <div className="container max-w-md mx-auto py-12 px-4">
           <Card>
             <CardContent className="pt-6">
-              <p className="text-destructive">{error.message}</p>
+              <p className="text-destructive">{getApiErrorMessage(error, "Не удалось загрузить результат анализа.")}</p>
               <Button asChild className="mt-4">
                 <Link href="/form">Новый анализ</Link>
               </Button>
@@ -173,12 +173,12 @@ export default function AnalysisResultPage() {
           </CardContent>
         </Card>
 
-        {result.explanations && result.explanations.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Что повлияло на оценку</CardTitle>
-            </CardHeader>
-            <CardContent>
+        <Card>
+          <CardHeader>
+            <CardTitle>Что повлияло на оценку</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {result.explanations && result.explanations.length > 0 ? (
               <ul className="space-y-2">
                 {result.explanations.map((e: { feature?: string; label?: string; text?: string; direction?: string }, i: number) => (
                   <li key={i} className="flex items-start gap-2 text-sm">
@@ -187,13 +187,17 @@ export default function AnalysisResultPage() {
                     ) : (
                       <ArrowUp className="h-4 w-4 shrink-0 text-green-600" />
                     )}
-                    <span><strong>{e.label ?? e.feature}</strong>: {e.text ?? ""}</span>
+                    <span><strong>{e.label ?? e.feature ?? `Фактор ${i + 1}`}</strong>: {e.text ?? "Без дополнительного комментария."}</span>
                   </li>
                 ))}
               </ul>
-            </CardContent>
-          </Card>
-        )}
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Детальные объяснения пока недоступны. Итог уже рассчитан: ориентируйтесь на уровень риска и клиническую рекомендацию выше.
+              </p>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </AuthGuard>
   );
