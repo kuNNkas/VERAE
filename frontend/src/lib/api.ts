@@ -2,6 +2,7 @@ import { fetchWithAuth } from "@/lib/auth";
 
 type ApiErrorPayload = {
   detail?: string | { message?: string };
+  message?: string;
 };
 
 export type AnalysisStatus = "queued" | "processing" | "completed" | "failed";
@@ -109,12 +110,20 @@ async function parseError(response: Response, fallback: string): Promise<never> 
   const message =
     typeof body.detail === "string"
       ? body.detail
-      : body.detail?.message ?? fallback;
+      : body.detail?.message ?? body.message ?? fallback;
 
   throw new Error(message);
 }
 
-export async function login(email: string, password: string): Promise<AuthResponse> {
+export function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
+export async function login(email: string, password: string) {
   const response = await fetch(`${API_BASE}/auth/login`, {
     method: "POST",
     headers: jsonHeaders(),

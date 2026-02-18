@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getAnalysisStatus } from "@/lib/api";
+import { getAnalysisStatus, type AnalysisStatus, getApiErrorMessage } from "@/lib/api";
 import { AuthGuard } from "@/components/auth-guard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
@@ -11,6 +11,33 @@ import { Button } from "@/components/ui/button";
 
 const POLL_INTERVAL_MS = 1500;
 const POLL_TIMEOUT_MS = 75000;
+
+const STATUS_META: Record<AnalysisStatus, { title: string; description: string; actionLabel: string; actionHref: string }> = {
+  pending: {
+    title: "Ожидает запуска",
+    description: "Анализ поставлен в очередь. Обновите статус через несколько секунд.",
+    actionLabel: "Обновить статус",
+    actionHref: "",
+  },
+  processing: {
+    title: "В обработке",
+    description: "Идёт расчёт показателей. Обычно это занимает меньше минуты.",
+    actionLabel: "Проверить снова",
+    actionHref: "",
+  },
+  completed: {
+    title: "Готово",
+    description: "Анализ завершён. Можно открыть результат.",
+    actionLabel: "Открыть результат",
+    actionHref: "",
+  },
+  failed: {
+    title: "Ошибка",
+    description: "Во время обработки произошла ошибка. Создайте новый анализ.",
+    actionLabel: "Создать новый анализ",
+    actionHref: "/form",
+  },
+};
 
 export default function AnalysisStatusPage() {
   const params = useParams();
@@ -72,7 +99,7 @@ export default function AnalysisStatusPage() {
         <div className="container max-w-md mx-auto py-12 px-4">
           <Card>
             <CardContent className="pt-6">
-              <p className="text-destructive">{error.message}</p>
+              <p className="text-destructive">{getApiErrorMessage(error, "Не удалось получить статус анализа.")}</p>
               <Button asChild className="mt-4">
                 <Link href="/form">Создать новый анализ</Link>
               </Button>
@@ -83,25 +110,10 @@ export default function AnalysisStatusPage() {
     );
   }
 
-  if (data?.status === "failed") {
-    return (
-      <AuthGuard>
-        <div className="container max-w-md mx-auto py-12 px-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Ошибка обработки</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">{failureMessage}</p>
-              <Button asChild className="mt-4">
-                <Link href="/form">Создать новый анализ</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </AuthGuard>
-    );
-  }
+  const elapsed = typeof window !== "undefined" ? Date.now() - startRef.current : 0;
+  const timedOut = elapsed >= POLL_TIMEOUT_MS;
+  const status = data?.status;
+  const statusMeta = status ? STATUS_META[status] : null;
 
   return (
     <AuthGuard>
@@ -112,15 +124,49 @@ export default function AnalysisStatusPage() {
           </CardHeader>
           <CardContent>
             {timedOut ? (
-              <p className="text-muted-foreground">Слишком долго. Попробуйте позже или создайте новый анализ.</p>
+              <>
+                <p className="text-muted-foreground">Слишком долго. Вы можете вернуться позже или создать новый анализ.</p>
+                <div className="mt-4 flex gap-2">
+                  <Button asChild variant="outline">
+                    <Link href={`/analyses/${id}`}>Обновить статус</Link>
+                  </Button>
+                  <Button asChild>
+                    <Link href="/form">Новый анализ</Link>
+                  </Button>
+                </div>
+              </>
             ) : (
-              <p className="text-muted-foreground">
-                {isPending && !data ? "Загрузка…" : `Статус: ${data?.status ?? "—"} (${data?.progress_stage ?? "—"})`}
-              </p>
+              <>
+                <p className="text-muted-foreground">
+                  {isPending && !data
+                    ? "Загрузка…"
+                    : statusMeta
+                      ? `${statusMeta.title}. ${statusMeta.description}`
+                      : "Определяем статус анализа…"}
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">Этап: {data?.progress_stage ?? "—"}</p>
+                <div className="mt-4 flex gap-2">
+                  {status === "completed" ? (
+                    <Button asChild>
+                      <Link href={`/analyses/${id}/result`}>{STATUS_META.completed.actionLabel}</Link>
+                    </Button>
+                  ) : status === "failed" ? (
+                    <Button asChild>
+                      <Link href={STATUS_META.failed.actionHref}>{STATUS_META.failed.actionLabel}</Link>
+                    </Button>
+                  ) : (
+                    <>
+                      <Button asChild variant="outline">
+                        <Link href={`/analyses/${id}`}>{status === "pending" ? STATUS_META.pending.actionLabel : STATUS_META.processing.actionLabel}</Link>
+                      </Button>
+                      <Button asChild>
+                        <Link href="/form">Отменить и создать новый</Link>
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </>
             )}
-            <Button asChild variant="outline" className="mt-4">
-              <Link href="/form">Отмена</Link>
-            </Button>
           </CardContent>
         </Card>
       </div>

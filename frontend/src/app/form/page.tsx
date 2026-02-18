@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { labFormSchema, REQUIRED_BASE, BMI_ALTERNATIVE, RECOMMENDED, type LabFormValues } from "@/lib/schemas";
-import { createAnalysis } from "@/lib/api";
+import { createAnalysis, getApiErrorMessage } from "@/lib/api";
 import { setLastAnalysisId, getLastAnalysisId, clearToken } from "@/lib/auth";
 import { AuthGuard } from "@/components/auth-guard";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const ALL_FIELDS = Array.from(new Set([...REQUIRED_BASE, ...BMI_ALTERNATIVE, ...RECOMMENDED])) as readonly string[];
 const REQUIRED_SET = new Set([...REQUIRED_BASE, ...BMI_ALTERNATIVE]);
+
 
 export default function FormPage() {
   const router = useRouter();
@@ -48,10 +49,30 @@ export default function FormPage() {
       setLastAnalysisId(data.analysis_id);
       router.push(`/analyses/${data.analysis_id}`);
     },
-    onError: (err: Error) => {
-      form.setError("root", { message: err.message });
+    onError: (err: unknown) => {
+      form.setError("root", { message: getApiErrorMessage(err, "Не удалось создать анализ. Попробуйте снова.") });
     },
   });
+
+  const values = form.watch();
+  const hasBmi = values.BMXBMI != null && !Number.isNaN(values.BMXBMI);
+  const hasHeight = values.BMXHT != null && !Number.isNaN(values.BMXHT);
+  const hasWeight = values.BMXWT != null && !Number.isNaN(values.BMXWT);
+
+  const missingRequiredFields = useMemo(() => {
+    return REQUIRED_BASE.filter((name) => {
+      const value = values[name];
+      return value == null || Number.isNaN(value);
+    });
+  }, [values]);
+
+  const bmiInlineError = useMemo(() => {
+    if (hasBmi || (hasHeight && hasWeight)) return null;
+    if (!hasHeight && !hasWeight) return "Укажите BMXBMI или оба поля BMXHT и BMXWT.";
+    if (!hasHeight) return "Добавьте BMXHT или заполните BMXBMI.";
+    if (!hasWeight) return "Добавьте BMXWT или заполните BMXBMI.";
+    return null;
+  }, [hasBmi, hasHeight, hasWeight]);
 
   return (
     <AuthGuard>
@@ -107,6 +128,19 @@ export default function FormPage() {
                   )}
                 </div>
               ))}
+              {missingRequiredFields.length > 0 && (
+                <div className="col-span-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                  <p className="font-medium">Заполните обязательные поля:</p>
+                  <p>{missingRequiredFields.join(", ")}</p>
+                </div>
+              )}
+              {bmiInlineError && (
+                <div className="col-span-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                  <p className="font-medium">Требование по BMI:</p>
+                  <p>{bmiInlineError}</p>
+                </div>
+              )}
+
               {form.formState.errors.root && (
                 <p className="col-span-2 text-sm text-destructive">
                   {form.formState.errors.root.message}
