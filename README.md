@@ -68,6 +68,15 @@ CORS настраивается через переменные окружени
 - `AUTH_TOKEN_ALGORITHM` — алгоритм подписи JWT (по умолчанию `HS256`).
 - `DATABASE_URL` — строка подключения SQLAlchemy (`sqlite:///./verae.db` по умолчанию, поддерживается PostgreSQL).
 
+### Обязательные production-переменные
+
+Для production **обязательно** задать (см. пример в `.env.prod.example`):
+
+- `AUTH_TOKEN_SECRET` — сильный секрет JWT без дефолтного значения.
+- `AUTH_TOKEN_TTL_SECONDS` — время жизни access token в секундах.
+- `DATABASE_URL` — строка подключения к production-БД.
+- `CORS_ALLOW_ORIGINS` — строгий allowlist origin (через запятую, без `*`).
+
 
 Порядок фичей в backend зафиксирован строго:
 
@@ -172,3 +181,15 @@ python -m pytest
 ```
 
 Команда работает как из корня репозитория (через `pytest.ini` в корне), так и из каталога `backend/` (через `backend/pytest.ini`).
+
+---
+
+## Перед деплоем
+
+Короткий security checklist:
+
+- [ ] Установлен `APP_ENV=prod`.
+- [ ] Заданы `AUTH_TOKEN_SECRET`, `AUTH_TOKEN_TTL_SECONDS`, `DATABASE_URL`, `CORS_ALLOW_ORIGINS`.
+- [ ] `CORS_ALLOW_ORIGINS` содержит только доверенные origin и не содержит `*`.
+- [ ] Проверено, что JWT подписывается `AUTH_TOKEN_SECRET` и не используются dev-значения.
+- [ ] Проверено, что токен не логируется и не выводится в UI/console на фронтенде.
