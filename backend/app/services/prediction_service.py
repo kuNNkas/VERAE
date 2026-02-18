@@ -138,6 +138,9 @@ class PredictResponse(BaseModel):
     status: str
     confidence: str
     model_name: str
+    error_code: str | None = None
+    message: str | None = None
+    invalid_fields: list[dict[str, str]] = Field(default_factory=list)
     missing_required_fields: list[str] = Field(default_factory=list)
 
     iron_index: float | None = None
@@ -281,6 +284,53 @@ def resolve_confidence(payload: dict[str, Any], missing_required: list[str]) -> 
     return "high" if rec_present >= len(RECOMMENDED_FIELDS) / 2 else "medium"
 
 
+def resolve_risk_profile(iron_index: float) -> tuple[str, str]:
+    tier = resolve_tier_from_iron_index(iron_index)
+    return tier, resolve_action_from_tier(tier)
+
+
+def validate_payload_values(payload: dict[str, Any]) -> list[dict[str, str]]:
+    invalid_fields: list[dict[str, str]] = []
+    for field_name, value in payload.items():
+        if value is None or field_name not in FEATURES:
+            continue
+
+        if isinstance(value, (int, float)):
+            numeric = float(value)
+            if not np.isfinite(numeric):
+                invalid_fields.append({"field": field_name, "reason": "must_be_finite_number"})
+                continue
+            if numeric < 0:
+                invalid_fields.append({"field": field_name, "reason": "must_be_non_negative"})
+                continue
+            if field_name in {"BMXBMI", "BMXHT", "BMXWT", "RIDAGEYR"} and numeric <= 0:
+                invalid_fields.append({"field": field_name, "reason": "must_be_positive"})
+            continue
+
+        invalid_fields.append({"field": field_name, "reason": "must_be_number"})
+
+    return invalid_fields
+
+
+def build_needs_input_response(
+    *,
+    confidence: str,
+    missing_required_fields: list[str],
+    error_code: str,
+    message: str,
+    invalid_fields: list[dict[str, str]] | None = None,
+) -> PredictResponse:
+    return PredictResponse(
+        status="needs_input",
+        confidence=confidence,
+        model_name=MODEL_NAME,
+        error_code=error_code,
+        message=message,
+        invalid_fields=invalid_fields or [],
+        missing_required_fields=missing_required_fields,
+    )
+
+
 def resolve_tier_from_iron_index(iron_index: float) -> str:
     if iron_index < 0:
         return "HIGH"
@@ -307,20 +357,30 @@ def get_display_risk(iron_index: float) -> float:
 
 
 def predict_payload(data: dict[str, Any]) -> PredictResponse:
+    invalid_fields = validate_payload_values(data)
+    if invalid_fields:
+        return build_needs_input_response(
+            confidence="low",
+            missing_required_fields=[],
+            error_code="invalid_payload",
+            message="Payload contains invalid numeric values",
+            invalid_fields=invalid_fields,
+        )
+
     missing_required = resolve_missing_required(data)
     confidence = resolve_confidence(data, missing_required)
 
     if missing_required:
-        return PredictResponse(
-            status="needs_input",
+        return build_needs_input_response(
             confidence=confidence,
-            model_name=MODEL_NAME,
             missing_required_fields=missing_required,
+            error_code="needs_input",
+            message="Required fields are missing",
         )
 
     runner = get_runner()
     iron_index = runner.predict_iron_index(data)
-    risk_tier = resolve_tier_from_iron_index(iron_index)
+    risk_tier, clinical_action = resolve_risk_profile(iron_index)
 
     return PredictResponse(
         status="ok",
@@ -329,6 +389,6 @@ def predict_payload(data: dict[str, Any]) -> PredictResponse:
         iron_index=round(iron_index, 2),
         risk_percent=get_display_risk(iron_index),
         risk_tier=risk_tier,
-        clinical_action=resolve_action_from_tier(risk_tier),
+        clinical_action=clinical_action,
         explanations=runner.get_explanations(data),
     )

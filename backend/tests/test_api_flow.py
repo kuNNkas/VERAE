@@ -214,3 +214,123 @@ def test_predict_endpoint_works_with_si_inputs() -> None:
     assert body["status"] == "ok"
     assert body["risk_tier"] in {"HIGH", "WARNING", "GRAY", "LOW"}
     assert isinstance(body.get("explanations"), list)
+
+
+def _required_min_payload() -> dict:
+    return {
+        "LBXHGB": 120,
+        "LBXMCVSI": 79,
+        "LBXMCHSI": 330,
+        "LBXRDW": 15.2,
+        "LBXRBCSI": 4.6,
+        "LBXHCT": 37,
+        "RIDAGEYR": 31,
+        "BMXBMI": 22.5,
+    }
+
+
+def test_predict_minimal_valid_payload() -> None:
+    client = TestClient(app)
+
+    resp = client.post("/v1/risk/predict", json=_required_min_payload())
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert body["confidence"] == "medium"
+    assert body["risk_tier"] in {"HIGH", "WARNING", "GRAY", "LOW"}
+    assert isinstance(body.get("clinical_action"), str)
+
+
+def test_predict_missing_bmi_and_height_weight_needs_input() -> None:
+    client = TestClient(app)
+
+    payload = _required_min_payload()
+    payload.pop("BMXBMI")
+    resp = client.post("/v1/risk/predict", json=payload)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "needs_input"
+    assert body["error_code"] == "needs_input"
+    assert body["missing_required_fields"] == ["BMXBMI_or_BMXHT_BMXWT"]
+
+
+def test_predict_invalid_numeric_values_returns_uniform_error_structure() -> None:
+    client = TestClient(app)
+
+    resp = client.post(
+        "/v1/risk/predict",
+        content=(
+            '{"LBXHGB": NaN, "LBXMCVSI": Infinity, "LBXMCHSI": 330, "LBXRDW": 15.2, '
+            '"LBXRBCSI": 4.6, "LBXHCT": 37, "RIDAGEYR": -1, "BMXBMI": 22.5}'
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "needs_input"
+    assert body["error_code"] == "invalid_payload"
+    assert body["message"] == "Payload contains invalid numeric values"
+    assert body["missing_required_fields"] == []
+    assert {item["field"] for item in body["invalid_fields"]} == {"LBXHGB", "LBXMCVSI", "RIDAGEYR"}
+
+
+def test_fallback_mode_without_cbm_is_stable() -> None:
+    from pathlib import Path
+
+    import app.services.prediction_service as prediction_service
+
+    prediction_service.get_runner.cache_clear()
+    original_model_path = prediction_service.MODEL_PATH
+    prediction_service.MODEL_PATH = Path("/tmp/non-existent-model.cbm")
+
+    try:
+        payload = _required_min_payload()
+        first = prediction_service.predict_payload(payload)
+        second = prediction_service.predict_payload(payload)
+
+        assert first.status == "ok"
+        assert second.status == "ok"
+        assert first.iron_index == second.iron_index
+        assert first.risk_percent == second.risk_percent
+        assert first.risk_tier == second.risk_tier
+        assert first.clinical_action == second.clinical_action
+    finally:
+        prediction_service.MODEL_PATH = original_model_path
+        prediction_service.get_runner.cache_clear()
+
+
+def test_predict_and_analysis_result_are_field_type_consistent() -> None:
+    client = TestClient(app)
+    payload = _required_min_payload()
+
+    direct = client.post("/v1/risk/predict", json=payload)
+    assert direct.status_code == 200
+    direct_body = direct.json()
+
+    headers, analysis_id, _ = _register_and_create_analysis(client)
+    process_analysis_job(analysis_id)
+    result = client.get(f"/analyses/{analysis_id}/result", headers=headers)
+
+    assert result.status_code == 200
+    result_body = result.json()
+
+    for field in [
+        "status",
+        "confidence",
+        "model_name",
+        "error_code",
+        "message",
+        "missing_required_fields",
+        "invalid_fields",
+        "iron_index",
+        "risk_percent",
+        "risk_tier",
+        "clinical_action",
+        "explanations",
+    ]:
+        assert field in direct_body
+        assert field in result_body
+        assert type(direct_body[field]) is type(result_body[field])
