@@ -28,13 +28,19 @@ def _parse_origins(raw_origins: str | None) -> list[str]:
 
 
 def _resolve_cors_origins() -> list[str]:
+    app_env = os.getenv('APP_ENV', 'dev').strip().lower()
     env_origins = _parse_origins(os.getenv('CORS_ALLOW_ORIGINS'))
-    if env_origins:
+
+    if app_env == 'prod':
+        # In production we require explicit allowlist and reject wildcard origins.
+        if not env_origins:
+            raise RuntimeError('CORS_ALLOW_ORIGINS must be set in production')
+        if '*' in env_origins:
+            raise RuntimeError('Wildcard CORS origin is not allowed in production')
         return env_origins
 
-    app_env = os.getenv('APP_ENV', 'dev').strip().lower()
-    if app_env == 'prod':
-        return PROD_CORS_ORIGINS
+    if env_origins:
+        return env_origins
     return DEV_CORS_ORIGINS
 
 

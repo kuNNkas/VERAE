@@ -141,6 +141,42 @@ def test_register_and_login() -> None:
     assert login.json()["token_type"] == "Bearer"
 
 
+
+
+def test_register_stores_password_hash_not_plaintext() -> None:
+    _clean_users()
+    client = TestClient(app)
+    email = _unique_email()
+    raw_password = "password123"
+
+    register = client.post("/auth/register", json={"email": email, "password": raw_password})
+    assert register.status_code == 201
+
+    with SessionLocal() as session:
+        user = session.query(User).filter(User.email == email).first()
+
+    assert user is not None
+    assert user.password_hash != raw_password
+    assert user.password_hash.startswith("$2")
+
+
+def test_register_rejects_invalid_email() -> None:
+    _clean_users()
+    client = TestClient(app)
+
+    response = client.post("/auth/register", json={"email": "not-an-email", "password": "password123"})
+
+    assert response.status_code == 422
+
+
+def test_register_rejects_weak_password_without_digits() -> None:
+    _clean_users()
+    client = TestClient(app)
+
+    response = client.post("/auth/register", json={"email": _unique_email(), "password": "password"})
+
+    assert response.status_code == 422
+
 def test_reject_expired_token() -> None:
     _clean_users()
     client = TestClient(app)
