@@ -5,7 +5,7 @@ type ApiErrorPayload = {
   message?: string;
 };
 
-export type AnalysisStatus = "queued" | "processing" | "completed" | "failed";
+export type AnalysisStatus = "pending" | "queued" | "processing" | "completed" | "failed";
 
 export type ProgressStage =
   | "queued"

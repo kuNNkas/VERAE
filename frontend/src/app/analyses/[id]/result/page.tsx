@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
-import { getAnalysisStatus, getAnalysisResult } from "@/lib/api";
+import { getAnalysisStatus, getAnalysisResult, getApiErrorMessage } from "@/lib/api";
 import { AuthGuard } from "@/components/auth-guard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
