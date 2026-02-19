@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.dependencies import get_current_user
 from app.services.analyses_service import (
@@ -10,9 +10,9 @@ from app.services.analyses_service import (
     get_analysis_result,
     get_analysis_status,
     list_analyses,
-    process_analysis_job,
 )
 from app.services.auth_service import UserRecord
+from app.services.job_queue import enqueue_analysis_job
 from app.services.prediction_service import PredictResponse
 
 router = APIRouter(prefix="/analyses", tags=["Analyses"])
@@ -37,11 +37,11 @@ def list_analyses_endpoint(
 @router.post("", response_model=CreateAnalysisResponse, status_code=status.HTTP_202_ACCEPTED)
 def create_analysis_endpoint(
     payload: CreateAnalysisRequest,
-    background_tasks: BackgroundTasks,
     current_user: UserRecord = Depends(get_current_user),
 ) -> CreateAnalysisResponse:
     response = create_analysis(current_user.id, payload)
-    background_tasks.add_task(process_analysis_job, response.analysis_id)
+    job_id = enqueue_analysis_job(response.analysis_id)
+    response.job.id = job_id
     return response
 
 

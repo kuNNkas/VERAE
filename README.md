@@ -26,6 +26,8 @@
 docker compose up --build
 ```
 
+Состав сервисов: `api`, `worker`, `redis`, `frontend`.
+
 После запуска:
 
 - Frontend: http://localhost:8080
@@ -36,7 +38,7 @@ docker compose up --build
 
 Чтобы менять фронт без пересборки образа:
 
-1. Запустите только API: `docker compose up api`
+1. Запустите API + worker + redis: `docker compose up api worker redis`
 2. В каталоге `frontend/`: `cp .env.local.example .env.local`, затем `npm install` и `npm run dev`
 3. Откройте http://localhost:3000 (Next.js dev server с HMR)
 4. В `.env.local` задайте `NEXT_PUBLIC_API_URL=http://localhost:8000`. Для CORS при запросах с localhost:3000 в `APP_ENV=dev` уже разрешён порт 3000.
@@ -67,6 +69,9 @@ CORS настраивается через переменные окружени
 - `AUTH_TOKEN_TTL_SECONDS` — TTL access token в секундах (по умолчанию `3600`).
 - `AUTH_TOKEN_ALGORITHM` — алгоритм подписи JWT (по умолчанию `HS256`).
 - `DATABASE_URL` — строка подключения SQLAlchemy (`sqlite:///./verae.db` по умолчанию, поддерживается PostgreSQL).
+- `QUEUE_MODE` — режим очереди обработки analyses (`inline` для локальных тестов, `redis` для worker-модели).
+- `REDIS_URL` — адрес Redis для очереди задач (по умолчанию `redis://redis:6379/0`).
+- `QUEUE_NAME` — имя очереди RQ (по умолчанию `analyses`).
 
 
 Порядок фичей в backend зафиксирован строго:
