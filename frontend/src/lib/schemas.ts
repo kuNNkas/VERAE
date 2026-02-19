@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-const numField = z.coerce.number().finite().optional();
+const numField = z.preprocess(
+  (val) => (typeof val === "number" && isNaN(val) ? undefined : val),
+  z.number().finite().optional()
+);
 
 export const REQUIRED_BASE = ["LBXHGB", "LBXMCVSI", "LBXMCHSI", "LBXRDW", "LBXRBCSI", "LBXHCT", "RIDAGEYR"] as const;
 export const BMI_ALTERNATIVE = ["BMXBMI", "BMXHT", "BMXWT"] as const;
@@ -46,7 +49,8 @@ export const labFormSchema = z
   })
   .superRefine((data, ctx) => {
     for (const key of REQUIRED_BASE) {
-      if (data[key] == null) {
+      const v = data[key];
+      if (v == null || (typeof v === "number" && isNaN(v))) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "Обязательное поле",
