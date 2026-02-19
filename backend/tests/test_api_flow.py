@@ -6,9 +6,8 @@ from jose import jwt
 
 from app.main import app
 from app.db.database import SessionLocal, init_db
-from app.db.models import User
+from app.db.models import Analysis, User
 from app.services.analyses_service import (
-    _ANALYSES,
     CreateAnalysisRequest,
     UploadMetadata,
     create_analysis,
@@ -24,6 +23,7 @@ def _unique_email() -> str:
 def _clean_users() -> None:
     init_db()
     with SessionLocal() as session:
+        session.query(Analysis).delete()
         session.query(User).delete()
         session.commit()
 
@@ -251,7 +251,12 @@ def test_failed_job_status_has_error_diagnostics() -> None:
     analysis_id = response.analysis_id
 
     # Simulate broken payload before worker processing.
-    _ANALYSES[analysis_id].lab = {}
+    with SessionLocal() as session:
+        record = session.query(Analysis).filter(Analysis.id == analysis_id).first()
+        assert record is not None
+        record.lab_payload = {}
+        session.commit()
+
     process_analysis_job(analysis_id)
 
     status_resp = client.get(f"/analyses/{analysis_id}", headers=headers)

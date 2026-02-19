@@ -107,8 +107,6 @@ MVP-логин пользователя. Возвращает access token и п
 
 Создаёт analysis job для авторизованного пользователя (`Authorization: Bearer <token>`). В теле обязательны `upload` (метаданные) и `lab` (те же поля, что в `POST /v1/risk/predict`). Обработка запускается в фоне (BackgroundTasks); через 1–2 с при повторном опросе `GET /analyses/{id}` статус станет `completed`, после чего `GET /analyses/{id}/result` вернёт результат в формате Predict.
 
-Текущая реализация MVP хранит analyses в in-memory хранилище backend-процесса: после рестарта API созданные analyses теряются.
-
 ### `GET /analyses/{id}`
 
 Возвращает статус analysis job для владельца (`queued | processing | completed | failed`), а для failed — `error_code` и `failure_diagnostic`.
