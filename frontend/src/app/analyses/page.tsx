@@ -2,10 +2,35 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { listAnalyses } from "@/lib/api";
+import { listAnalyses, type AnalysisStatus } from "@/lib/api";
 import { AuthGuard } from "@/components/auth-guard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+const STATUS_LABEL: Record<AnalysisStatus, string> = {
+  pending: "В очереди",
+  processing: "Обрабатывается",
+  completed: "Готов",
+  failed: "Ошибка",
+};
+
+const STATUS_COLOR: Record<AnalysisStatus, string> = {
+  pending: "text-muted-foreground",
+  processing: "text-blue-600",
+  completed: "text-green-600",
+  failed: "text-destructive",
+};
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleString("ru-RU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export default function AnalysesListPage() {
   const { data, error, isPending } = useQuery({
@@ -24,26 +49,36 @@ export default function AnalysesListPage() {
         </div>
         <Card>
           <CardHeader>
-            <CardTitle>Список</CardTitle>
+            <CardTitle>История</CardTitle>
           </CardHeader>
           <CardContent>
             {isPending && <p className="text-muted-foreground">Загрузка…</p>}
             {error && <p className="text-destructive">{error.message}</p>}
             {data?.analyses && data.analyses.length === 0 && (
-              <p className="text-muted-foreground">Нет анализов.</p>
+              <p className="text-muted-foreground">Пока нет анализов. Создайте первый!</p>
             )}
             {data?.analyses && data.analyses.length > 0 && (
-              <ul className="space-y-2">
-                {data.analyses.map((a) => (
-                  <li key={a.analysis_id}>
-                    <Link
-                      href={`/analyses/${a.analysis_id}/result`}
-                      className="text-primary underline hover:no-underline"
-                    >
-                      {a.analysis_id.slice(0, 8)}… — {a.status} — {a.created_at}
-                    </Link>
-                  </li>
-                ))}
+              <ul className="divide-y">
+                {data.analyses.map((a, i) => {
+                  const status = a.status as AnalysisStatus;
+                  const href =
+                    status === "completed"
+                      ? `/analyses/${a.analysis_id}/result`
+                      : `/analyses/${a.analysis_id}`;
+                  return (
+                    <li key={a.analysis_id} className="py-3 flex items-center justify-between gap-4">
+                      <div className="flex flex-col gap-0.5">
+                        <Link href={href} className="font-medium hover:underline">
+                          Анализ №{data.analyses.length - i}
+                        </Link>
+                        <span className="text-sm text-muted-foreground">{formatDate(a.created_at)}</span>
+                      </div>
+                      <span className={`text-sm font-medium shrink-0 ${STATUS_COLOR[status] ?? "text-muted-foreground"}`}>
+                        {STATUS_LABEL[status] ?? a.status}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </CardContent>

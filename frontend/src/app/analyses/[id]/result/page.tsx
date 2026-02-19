@@ -23,6 +23,19 @@ import { trackEvent } from "@/lib/telemetry";
 const IRON_INDEX_MIN = -10;
 const IRON_INDEX_MAX = 15;
 
+const TIER_LABEL: Record<string, string> = {
+  HIGH: "Высокий риск",
+  WARNING: "Повышенный риск",
+  GRAY: "Неопределённо",
+  LOW: "Низкий риск",
+};
+
+const CONFIDENCE_LABEL: Record<string, string> = {
+  high: "высокая",
+  medium: "средняя",
+  low: "низкая",
+};
+
 export default function AnalysisResultPage() {
   const params = useParams();
   const id = params.id as string;
@@ -162,15 +175,33 @@ export default function AnalysisResultPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p>
-              <strong>Уровень:</strong> {tier}
-              {result.risk_percent != null && ` (${result.risk_percent}%)`}
+              <strong>Уровень риска:</strong>{" "}
+              <span className={
+                tier === "HIGH" ? "text-red-600 font-semibold" :
+                tier === "WARNING" ? "text-yellow-600 font-semibold" :
+                tier === "LOW" ? "text-green-600 font-semibold" :
+                "text-muted-foreground font-semibold"
+              }>
+                {TIER_LABEL[tier] ?? tier}
+              </span>
+              {result.risk_percent != null && (
+                <span className="text-muted-foreground text-sm ml-2">({result.risk_percent}%)</span>
+              )}
             </p>
-            <p><strong>Индекс железа:</strong> {ironIndex}</p>
+            <p><strong>Индекс железа:</strong> {ironIndex.toFixed(2)}</p>
             {result.clinical_action && (
-              <p><strong>Рекомендация:</strong> {result.clinical_action}</p>
+              <div className="bg-muted rounded-lg p-3">
+                <p className="text-sm font-medium mb-1">Рекомендация</p>
+                <p className="text-sm">{result.clinical_action}</p>
+                <Button variant="outline" size="sm" className="mt-3" disabled>
+                  Сдать ферритин у партнёра — скоро
+                </Button>
+              </div>
             )}
             {result.confidence && (
-              <p><strong>Уверенность:</strong> {result.confidence}</p>
+              <p className="text-sm text-muted-foreground">
+                Уверенность модели: {CONFIDENCE_LABEL[result.confidence] ?? result.confidence}
+              </p>
             )}
 
             <div className="h-8 w-full">
@@ -193,7 +224,7 @@ export default function AnalysisResultPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="mb-6">
           <CardHeader>
             <CardTitle>Что повлияло на оценку</CardTitle>
           </CardHeader>
@@ -218,6 +249,11 @@ export default function AnalysisResultPage() {
             )}
           </CardContent>
         </Card>
+
+        <p className="text-xs text-muted-foreground text-center px-4">
+          Это не медицинский диагноз. Результат носит исключительно информационный характер и не заменяет консультацию врача.
+          Сервис не является медицинским изделием. Рекомендуем обсудить результаты со специалистом.
+        </p>
       </div>
     </AuthGuard>
   );

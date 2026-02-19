@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS input_payload TEXT;
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS result_payload TEXT;
+
+COMMIT;

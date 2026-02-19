@@ -34,29 +34,39 @@ export default function RegisterPage() {
 
   return (
     <div className="container max-w-md mx-auto py-12 px-4">
+      <div className="mb-6 text-center">
+        <Link href="/" className="text-xl font-bold tracking-tight hover:opacity-80 transition-opacity">
+          VERAE
+        </Link>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>Регистрация</CardTitle>
+          <p className="text-sm text-muted-foreground">Бесплатно, без карты</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit((data) => mutation.mutate(data))} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" {...register("email")} />
+              <Input id="email" type="email" autoComplete="email" {...register("email")} />
               {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Пароль (не менее 8 символов)</Label>
-              <Input id="password" type="password" {...register("password")} />
-              {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+              <Label htmlFor="password">Пароль</Label>
+              <Input id="password" type="password" autoComplete="new-password" {...register("password")} />
+              {errors.password
+                ? <p className="text-sm text-destructive">{errors.password.message}</p>
+                : <p className="text-xs text-muted-foreground">Минимум 8 символов, буквы и цифры</p>
+              }
             </div>
             {errors.root && <p className="text-sm text-destructive">{errors.root.message}</p>}
             <Button type="submit" className="w-full" disabled={mutation.isPending}>
               {mutation.isPending ? "Регистрация…" : "Зарегистрироваться"}
             </Button>
           </form>
-          <p className="mt-4 text-sm text-muted-foreground">
-            <Link href="/login" className="underline">Вход</Link>
+          <p className="mt-4 text-sm text-muted-foreground text-center">
+            Уже есть аккаунт?{" "}
+            <Link href="/login" className="underline">Войти</Link>
           </p>
         </CardContent>
       </Card>

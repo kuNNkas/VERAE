@@ -72,9 +72,6 @@ export default function AnalysisStatusPage() {
     }
   }, [data?.status, id, router]);
 
-  const elapsed = typeof window !== "undefined" ? Date.now() - startRef.current : 0;
-  const timedOut = elapsed >= POLL_TIMEOUT_MS && data?.status !== "completed" && data?.status !== "failed";
-
   const failureMessage = useMemo(() => {
     if (!data || data.status !== "failed") return null;
     if (data.failure_diagnostic === "inference_error") {

@@ -3,15 +3,50 @@ from __future__ import annotations
 import time
 import uuid
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from pydantic import BaseModel
 
 from app.core.observability import log_event, reset_correlation_id, set_correlation_id
+from app.db.database import SessionLocal
+from app.db.models import Analysis as AnalysisModel
 from app.services.prediction_service import PredictRequest, PredictResponse, predict_payload
 
 
 def _now_iso() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def _now_utc() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _db_save_analysis(record: "AnalysisRecord", *, input_payload: dict | None = None) -> None:
+    with SessionLocal() as session:
+        row = session.get(AnalysisModel, record.analysis_id)
+        if row is None:
+            row = AnalysisModel(
+                id=record.analysis_id,
+                user_id=record.user_id,
+                status=record.status,
+                progress_stage=record.progress_stage,
+                error_message=record.error_message,
+                failure_reason=record.failure_reason,
+                input_payload=input_payload,
+                result_payload=None,
+                created_at=_now_utc(),
+                updated_at=_now_utc(),
+            )
+            session.add(row)
+        else:
+            row.status = record.status
+            row.progress_stage = record.progress_stage
+            row.error_message = record.error_message
+            row.failure_reason = record.failure_reason
+            row.updated_at = _now_utc()
+            if record.result is not None:
+                row.result_payload = record.result.model_dump()
+        session.commit()
 
 
 class UploadMetadata(BaseModel):
@@ -99,6 +134,8 @@ def process_analysis_job(analysis_id: str, correlation_id: str | None = None) ->
     if not record.lab:
         record.status = "failed"
         record.progress_stage = "failed"
+        record.failure_reason = "empty_lab_payload"
+        record.error_message = "Lab payload is empty"
         record.updated_at = _now_iso()
         log_event('analysis_completed', analysis_id=analysis_id, status='failed', reason='empty_lab_payload')
         reset_correlation_id(token)
@@ -114,11 +151,14 @@ def process_analysis_job(analysis_id: str, correlation_id: str | None = None) ->
         record.status = "completed"
         record.progress_stage = "completed"
         log_event('analysis_completed', analysis_id=analysis_id, status='success', result_status=result.status)
-    except Exception:
+    except Exception as exc:
         record.status = "failed"
         record.progress_stage = "failed"
-        log_event('analysis_completed', analysis_id=analysis_id, status='failed')
+        record.failure_reason = "inference_error"
+        record.error_message = str(exc)
+        log_event('analysis_completed', analysis_id=analysis_id, status='failed', reason='inference_error')
     record.updated_at = _now_iso()
+    _db_save_analysis(record)
     reset_correlation_id(token)
 
 
@@ -138,6 +178,7 @@ def create_analysis(user_id: str, payload: CreateAnalysisRequest) -> CreateAnaly
         lab=lab_dict,
     )
     _ANALYSES[analysis_id] = record
+    _db_save_analysis(record, input_payload=lab_dict)
     log_event(
         'analysis_created',
         analysis_id=analysis_id,
@@ -158,17 +199,18 @@ def create_analysis(user_id: str, payload: CreateAnalysisRequest) -> CreateAnaly
 
 
 def get_analysis_status(user_id: str, analysis_id: str) -> AnalysisStatusResponse | None:
-    record = _ANALYSES.get(analysis_id)
-    if record is None or record.user_id != user_id:
+    with SessionLocal() as session:
+        row = session.get(AnalysisModel, analysis_id)
+    if row is None or row.user_id != user_id:
         return None
 
     return AnalysisStatusResponse(
-        analysis_id=record.analysis_id,
-        status=record.status,
-        progress_stage=record.progress_stage,
-        error_code=record.failure_reason if record.status == "failed" else None,
-        failure_diagnostic=record.failure_reason if record.status == "failed" else None,
-        updated_at=record.updated_at,
+        analysis_id=row.id,
+        status=row.status,
+        progress_stage=row.progress_stage,
+        error_code=row.failure_reason if row.status == "failed" else None,
+        failure_diagnostic=row.failure_reason if row.status == "failed" else None,
+        updated_at=row.updated_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
     )
 
 
@@ -196,12 +238,16 @@ def advance_analysis_state(
 
 
 def get_analysis_result(user_id: str, analysis_id: str) -> PredictResponse | None:
-    record = _ANALYSES.get(analysis_id)
-    if record is None or record.user_id != user_id:
+    with SessionLocal() as session:
+        row = session.get(AnalysisModel, analysis_id)
+    if row is None or row.user_id != user_id:
         return None
-    if record.status != "completed":
+    if row.status != "completed":
         return None
-    return record.result
+    if row.result_payload is None:
+        mem = _ANALYSES.get(analysis_id)
+        return mem.result if mem else None
+    return PredictResponse.model_validate(row.result_payload)
 
 
 class AnalysisListItem(BaseModel):
@@ -215,14 +261,19 @@ class ListAnalysesResponse(BaseModel):
 
 
 def list_analyses(user_id: str) -> ListAnalysesResponse:
+    with SessionLocal() as session:
+        rows = (
+            session.query(AnalysisModel)
+            .filter(AnalysisModel.user_id == user_id)
+            .order_by(AnalysisModel.created_at.desc())
+            .all()
+        )
     items = [
         AnalysisListItem(
-            analysis_id=r.analysis_id,
-            status=r.status,
-            created_at=r.created_at,
+            analysis_id=row.id,
+            status=row.status,
+            created_at=row.created_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
         )
-        for r in _ANALYSES.values()
-        if r.user_id == user_id
+        for row in rows
     ]
-    items.sort(key=lambda x: x.created_at, reverse=True)
     return ListAnalysesResponse(analyses=items)

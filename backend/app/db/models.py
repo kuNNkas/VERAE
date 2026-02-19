@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Text, String
+from sqlalchemy import DateTime, ForeignKey, JSON, Text, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
@@ -26,5 +26,7 @@ class Analysis(Base):
     progress_stage: Mapped[str] = mapped_column(String(64), nullable=False)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     failure_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    input_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    result_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
