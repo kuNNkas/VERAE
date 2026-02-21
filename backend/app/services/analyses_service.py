@@ -250,6 +250,36 @@ def get_analysis_result(user_id: str, analysis_id: str) -> PredictResponse | Non
     return PredictResponse.model_validate(row.result_payload)
 
 
+
+
+class AnalysisInputResponse(BaseModel):
+    analysis_id: str
+    status: str
+    input_payload: dict
+    created_at: str
+    updated_at: str
+
+
+def get_latest_analysis_input(user_id: str) -> AnalysisInputResponse | None:
+    with SessionLocal() as session:
+        row = (
+            session.query(AnalysisModel)
+            .filter(AnalysisModel.user_id == user_id)
+            .order_by(AnalysisModel.created_at.desc())
+            .first()
+        )
+
+    if row is None:
+        return None
+
+    return AnalysisInputResponse(
+        analysis_id=row.id,
+        status=row.status,
+        input_payload=row.input_payload or {},
+        created_at=row.created_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        updated_at=row.updated_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
+
 class AnalysisListItem(BaseModel):
     analysis_id: str
     status: str

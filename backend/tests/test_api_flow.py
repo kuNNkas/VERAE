@@ -370,3 +370,50 @@ def test_predict_and_analysis_result_are_field_type_consistent() -> None:
         assert field in direct_body
         assert field in result_body
         assert type(direct_body[field]) is type(result_body[field])
+
+
+def test_users_me_get_and_patch_profile() -> None:
+    _clean_users()
+    client = TestClient(app)
+
+    register = client.post("/auth/register", json={"email": _unique_email(), "password": "password123"})
+    assert register.status_code == 201
+    token = register.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    me = client.get("/users/me", headers=headers)
+    assert me.status_code == 200
+    assert me.json()["first_name"] is None
+
+    patch = client.patch(
+        "/users/me",
+        headers=headers,
+        json={
+            "first_name": "Ivan",
+            "last_name": "Petrov",
+            "default_age": 29,
+            "default_gender": 1,
+            "default_height": 180.5,
+            "default_weight": 78.2,
+        },
+    )
+    assert patch.status_code == 200
+    body = patch.json()
+    assert body["first_name"] == "Ivan"
+    assert body["last_name"] == "Petrov"
+    assert body["default_age"] == 29
+    assert body["default_gender"] == 1
+    assert body["default_height"] == 180.5
+    assert body["default_weight"] == 78.2
+
+
+def test_latest_analysis_input_returns_saved_payload() -> None:
+    client = TestClient(app)
+    headers, analysis_id, _ = _register_and_create_analysis(client)
+
+    response = client.get("/analyses/latest/input", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["analysis_id"] == analysis_id
+    assert body["input_payload"]["LBXHGB"] == 120
+    assert body["input_payload"]["BMXBMI"] == 22.5
