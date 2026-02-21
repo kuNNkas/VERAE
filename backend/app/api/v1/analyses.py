@@ -2,6 +2,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 
 from app.core.dependencies import get_current_user
 from app.services.analyses_service import (
+    AnalysisInputResponse,
     AnalysisStatusResponse,
     CreateAnalysisRequest,
     CreateAnalysisResponse,
@@ -9,6 +10,7 @@ from app.services.analyses_service import (
     create_analysis,
     get_analysis_result,
     get_analysis_status,
+    get_latest_analysis_input,
     list_analyses,
     process_analysis_job,
 )
@@ -32,6 +34,19 @@ def list_analyses_endpoint(
     current_user: UserRecord = Depends(get_current_user),
 ) -> ListAnalysesResponse:
     return list_analyses(current_user.id)
+
+
+@router.get("/latest/input", response_model=AnalysisInputResponse)
+def get_latest_analysis_input_endpoint(
+    current_user: UserRecord = Depends(get_current_user),
+) -> AnalysisInputResponse:
+    result = get_latest_analysis_input(current_user.id)
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ANALYSIS_NOT_FOUND_DETAIL,
+        )
+    return result
 
 
 @router.post("", response_model=CreateAnalysisResponse, status_code=status.HTTP_202_ACCEPTED)
