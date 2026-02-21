@@ -7,7 +7,7 @@ import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
 import { loginSchema } from "@/lib/schemas";
 import { getApiErrorMessage, login } from "@/lib/api";
-import { setToken } from "@/lib/auth";
+import { setToken, setUser } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,7 +25,8 @@ export default function LoginPage() {
     mutationFn: ({ email, password }: LoginForm) => login(email, password),
     onSuccess: (data) => {
       setToken(data.access_token);
-      router.push("/form");
+      setUser(data.user);
+      router.push("/dashboard");
     },
     onError: (err: unknown) => {
       setError("root", { message: getApiErrorMessage(err, "Не удалось войти. Попробуйте снова.") });
@@ -58,6 +59,15 @@ export default function LoginPage() {
           <p className="mt-4 text-sm text-muted-foreground">
             <Link href="/register" className="underline">Регистрация</Link>
           </p>
+          {process.env.NODE_ENV === "development" && (
+            <p className="mt-3 pt-3 border-t border-border text-sm text-muted-foreground">
+              <Link href="/dashboard" className="underline">Для разработки: кабинет</Link>
+              {" · "}
+              <Link href="/form" className="underline">Форма</Link>
+              {" · "}
+              <Link href="/analyses" className="underline">Мои анализы</Link>
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

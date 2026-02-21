@@ -130,6 +130,9 @@ export default function FormPage() {
             VERAE
           </Link>
           <div className="flex gap-2">
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/dashboard">Кабинет</Link>
+            </Button>
             <Button variant="outline" size="sm" asChild>
               <Link href="/analyses">Мои анализы</Link>
             </Button>

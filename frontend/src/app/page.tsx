@@ -12,7 +12,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (getToken()) {
-      router.replace("/form");
+      router.replace("/dashboard");
     } else {
       setReady(true);
     }

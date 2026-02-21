@@ -179,7 +179,7 @@ export default function AnalysisResultPage() {
               <span className={
                 tier === "HIGH" ? "text-red-600 font-semibold" :
                 tier === "WARNING" ? "text-yellow-600 font-semibold" :
-                tier === "LOW" ? "text-green-600 font-semibold" :
+                tier === "LOW" ? "text-primary font-semibold" :
                 "text-muted-foreground font-semibold"
               }>
                 {TIER_LABEL[tier] ?? tier}

@@ -42,7 +42,12 @@ export default function AnalysesListPage() {
     <AuthGuard>
       <div className="container max-w-2xl mx-auto py-8 px-4">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-semibold">Мои анализы</h1>
+          <div className="flex items-center gap-3">
+            <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
+              Кабинет
+            </Link>
+            <h1 className="text-2xl font-semibold">Мои анализы</h1>
+          </div>
           <Button asChild>
             <Link href="/form">Новый анализ</Link>
           </Button>

@@ -7,7 +7,7 @@ import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
 import { registerSchema } from "@/lib/schemas";
 import { getApiErrorMessage, register as apiRegister } from "@/lib/api";
-import { setToken } from "@/lib/auth";
+import { setToken, setUser } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,7 +25,8 @@ export default function RegisterPage() {
     mutationFn: ({ email, password }: RegisterForm) => apiRegister(email, password),
     onSuccess: (data) => {
       setToken(data.access_token);
-      router.push("/form");
+      setUser(data.user);
+      router.push("/dashboard");
     },
     onError: (err: unknown) => {
       setError("root", { message: getApiErrorMessage(err, "Не удалось зарегистрироваться. Попробуйте снова.") });

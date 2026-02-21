@@ -1,3 +1,5 @@
+# Prod by default. For frontend dev (hot reload, no rebuild):
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 services:
   api:
     build:
