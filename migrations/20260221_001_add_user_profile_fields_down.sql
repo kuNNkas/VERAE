@@ -1,0 +1,6 @@
+ALTER TABLE users DROP COLUMN IF EXISTS default_weight;
+ALTER TABLE users DROP COLUMN IF EXISTS default_height;
+ALTER TABLE users DROP COLUMN IF EXISTS default_gender;
+ALTER TABLE users DROP COLUMN IF EXISTS default_age;
+ALTER TABLE users DROP COLUMN IF EXISTS last_name;
+ALTER TABLE users DROP COLUMN IF EXISTS first_name;
