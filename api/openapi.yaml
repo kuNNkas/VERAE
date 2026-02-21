@@ -580,6 +580,18 @@ components:
           $ref: '#/components/schemas/ConfidenceLevel'
         model_name:
           type: string
+        error_code:
+          type: string
+          nullable: true
+        message:
+          type: string
+          nullable: true
+        invalid_fields:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: string
         missing_required_fields:
           type: array
           items:
@@ -616,6 +628,18 @@ components:
           $ref: '#/components/schemas/ConfidenceLow'
         model_name:
           type: string
+        error_code:
+          type: string
+          nullable: true
+        message:
+          type: string
+          nullable: true
+        invalid_fields:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: string
         missing_required_fields:
           type: array
           items:

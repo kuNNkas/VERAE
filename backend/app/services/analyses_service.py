@@ -199,6 +199,19 @@ def create_analysis(user_id: str, payload: CreateAnalysisRequest) -> CreateAnaly
 
 
 def get_analysis_status(user_id: str, analysis_id: str) -> AnalysisStatusResponse | None:
+    mem = _ANALYSES.get(analysis_id)
+    if mem is not None:
+        if mem.user_id != user_id:
+            return None
+        return AnalysisStatusResponse(
+            analysis_id=mem.analysis_id,
+            status=mem.status,
+            progress_stage=mem.progress_stage,
+            error_code=mem.failure_reason if mem.status == "failed" else None,
+            failure_diagnostic=mem.failure_reason if mem.status == "failed" else None,
+            updated_at=mem.updated_at,
+        )
+
     with SessionLocal() as session:
         row = session.get(AnalysisModel, analysis_id)
     if row is None or row.user_id != user_id:
