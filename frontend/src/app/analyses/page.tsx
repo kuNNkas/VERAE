@@ -68,7 +68,7 @@ export default function AnalysesListPage() {
                   const status = a.status as AnalysisStatus;
                   const href =
                     status === "completed"
-                      ? `/analyses/${a.analysis_id}/result`
+                      ? `/analyses/${a.analysis_id}`
                       : `/analyses/${a.analysis_id}`;
                   return (
                     <li key={a.analysis_id} className="py-3 flex items-center justify-between gap-4">

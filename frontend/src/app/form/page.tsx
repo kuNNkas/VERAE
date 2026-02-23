@@ -238,7 +238,7 @@ export default function FormPage() {
             </Button>
             {lastId && (
               <Button type="button" variant="outline" asChild>
-                <Link href={`/analyses/${lastId}/result`}>Последний результат</Link>
+                <Link href={`/analyses/${lastId}`}>Последний результат</Link>
               </Button>
             )}
           </div>

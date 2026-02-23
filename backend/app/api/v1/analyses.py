@@ -8,6 +8,7 @@ from app.services.analyses_service import (
     CreateAnalysisResponse,
     ListAnalysesResponse,
     create_analysis,
+    get_analysis_input,
     get_analysis_result,
     get_analysis_status,
     get_latest_analysis_input,
@@ -66,6 +67,20 @@ def get_analysis_status_endpoint(
     current_user: UserRecord = Depends(get_current_user),
 ) -> AnalysisStatusResponse:
     result = get_analysis_status(current_user.id, analysis_id)
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ANALYSIS_NOT_FOUND_DETAIL,
+        )
+    return result
+
+
+@router.get("/{analysis_id}/input", response_model=AnalysisInputResponse)
+def get_analysis_input_endpoint(
+    analysis_id: str,
+    current_user: UserRecord = Depends(get_current_user),
+) -> AnalysisInputResponse:
+    result = get_analysis_input(current_user.id, analysis_id)
     if result is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

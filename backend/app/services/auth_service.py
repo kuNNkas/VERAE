@@ -17,7 +17,8 @@ from app.db.models import User
 from app.core.observability import log_event
 from app.repositories.user_repository import UserRepository
 
-TOKEN_TTL_SECONDS = int(os.getenv("AUTH_TOKEN_TTL_SECONDS", "3600"))
+# По умолчанию 30 дней (B2C удобство); для строже — задать AUTH_TOKEN_TTL_SECONDS (сек)
+TOKEN_TTL_SECONDS = int(os.getenv("AUTH_TOKEN_TTL_SECONDS", "2592000"))
 TOKEN_SECRET = os.getenv("AUTH_TOKEN_SECRET", "dev-secret-change-me")
 TOKEN_ALGORITHM = os.getenv("AUTH_TOKEN_ALGORITHM", "HS256")
 APP_ENV = os.getenv("APP_ENV", "dev").strip().lower()

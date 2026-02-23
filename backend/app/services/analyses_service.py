@@ -293,6 +293,21 @@ def get_latest_analysis_input(user_id: str) -> AnalysisInputResponse | None:
         updated_at=row.updated_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
     )
 
+
+def get_analysis_input(user_id: str, analysis_id: str) -> AnalysisInputResponse | None:
+    with SessionLocal() as session:
+        row = session.get(AnalysisModel, analysis_id)
+    if row is None or row.user_id != user_id:
+        return None
+    return AnalysisInputResponse(
+        analysis_id=row.id,
+        status=row.status,
+        input_payload=row.input_payload or {},
+        created_at=row.created_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        updated_at=row.updated_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
+
+
 class AnalysisListItem(BaseModel):
     analysis_id: str
     status: str

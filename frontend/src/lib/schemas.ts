@@ -6,6 +6,8 @@ const numField = z.preprocess(
 );
 
 export const REQUIRED_BASE = ["LBXHGB", "LBXMCVSI", "LBXMCHSI", "LBXRDW", "LBXRBCSI", "LBXHCT", "RIDAGEYR"] as const;
+/** Только показатели крови для шага 2 онбординга (возраст и антропометрия берутся из профиля) */
+export const REQUIRED_LAB_ONLY = ["LBXHGB", "LBXMCVSI", "LBXMCHSI", "LBXRDW", "LBXRBCSI", "LBXHCT"] as const;
 export const BMI_ALTERNATIVE = ["BMXBMI", "BMXHT", "BMXWT"] as const;
 
 export const RECOMMENDED = [
@@ -19,6 +21,17 @@ export const loginSchema = z.object({
 });
 
 export const registerSchema = loginSchema;
+
+export const profileFormSchema = z.object({
+  first_name: z.string().min(1, "Укажите имя"),
+  last_name: z.string().optional(),
+  default_age: z.number().min(0, "Возраст от 0").max(120, "Возраст до 120"),
+  default_gender: z.union([z.literal(1), z.literal(2)]).optional(),
+  default_height: z.number().min(1).max(300).optional(),
+  default_weight: z.number().min(1).max(500).optional(),
+});
+
+export type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 export const labFormSchema = z
   .object({
@@ -79,6 +92,47 @@ export const labFormSchema = z
           code: z.ZodIssueCode.custom,
           message: "Укажите BMXWT или BMXBMI",
           path: ["BMXWT"],
+        });
+      }
+    }
+  });
+
+/** Схема для шага 2 онбординга: только кровь; возраст и антропометрия подставляются из профиля */
+export const labFormSchemaOnboarding = z
+  .object({
+    LBXHGB: numField,
+    LBXMCVSI: numField,
+    LBXMCHSI: numField,
+    LBXRDW: numField,
+    LBXRBCSI: numField,
+    LBXHCT: numField,
+    RIDAGEYR: numField,
+    BMXBMI: numField,
+    BMXHT: numField,
+    BMXWT: numField,
+    LBXWBCSI: numField,
+    LBXLYPCT: numField,
+    LBXMOPCT: numField,
+    LBXNEPCT: numField,
+    LBXEOPCT: numField,
+    LBXBAPCT: numField,
+    LBXPLTSI: numField,
+    LBXMPSI: numField,
+    RIAGENDR: numField,
+    LBXSGL: numField,
+    LBXSCH: numField,
+    BMXWAIST: numField,
+    BP_SYS: numField,
+    BP_DIA: numField,
+  })
+  .superRefine((data, ctx) => {
+    for (const key of REQUIRED_LAB_ONLY) {
+      const v = data[key];
+      if (v == null || (typeof v === "number" && isNaN(v))) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Обязательное поле",
+          path: [key],
         });
       }
     }

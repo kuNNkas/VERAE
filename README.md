@@ -65,7 +65,7 @@ CORS настраивается через переменные окружени
 ### Переменные окружения для auth
 
 - `AUTH_TOKEN_SECRET` — секрет подписи JWT (обязательно изменить в production).
-- `AUTH_TOKEN_TTL_SECONDS` — TTL access token в секундах (по умолчанию `3600`).
+- `AUTH_TOKEN_TTL_SECONDS` — TTL access token в секундах (по умолчанию `2592000` = 30 дней).
 - `AUTH_TOKEN_ALGORITHM` — алгоритм подписи JWT (по умолчанию `HS256`).
 - `DATABASE_URL` — строка подключения SQLAlchemy (`sqlite:///./verae.db` по умолчанию, поддерживается PostgreSQL).
 

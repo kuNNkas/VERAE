@@ -4,8 +4,9 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { getUser, getToken } from "@/lib/auth";
-import { listAnalyses, getAnalysisResult } from "@/lib/api";
+import { listAnalyses, getAnalysisResult, getLatestAnalysisInput, getMe } from "@/lib/api";
 import type { PredictResponseOk } from "@/lib/api";
+import { FIELD_META } from "@/lib/schemas";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { User, Pencil, Upload } from "lucide-react";
@@ -79,7 +80,7 @@ function LastResultCard({
           )}
         </div>
         <Button asChild>
-          <Link href={`/analyses/${analysisId}/result`}>Смотреть детали</Link>
+          <Link href={`/analyses/${analysisId}`}>Смотреть детали</Link>
         </Button>
       </CardContent>
     </Card>
@@ -102,14 +103,70 @@ function AnalysisInProgressCard({ analysisId }: { analysisId: string }) {
   );
 }
 
+function LastAnalysisInputCard({
+  input,
+  analysisId,
+}: {
+  input: Record<string, number | null | undefined>;
+  analysisId: string;
+}) {
+  const entries = Object.entries(input)
+    .filter(([, v]) => v != null && !Number.isNaN(v))
+    .sort(([a], [b]) => a.localeCompare(b));
+
+  return (
+    <Card>
+      <CardContent className="pt-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Входные данные последнего анализа</h2>
+          <Button asChild variant="ghost" size="sm">
+            <Link href={`/analyses/${analysisId}`}>К результату</Link>
+          </Button>
+        </div>
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+          {entries.map(([key, value]) => {
+            const meta = FIELD_META[key as keyof typeof FIELD_META];
+            const label = meta?.label ?? key;
+            const unit = meta?.unit ?? "";
+            const display =
+              typeof value === "number" && Number.isInteger(value)
+                ? String(value)
+                : typeof value === "number"
+                  ? value.toFixed(2)
+                  : String(value);
+            return (
+              <div key={key} className="flex justify-between gap-2 border-b border-border/50 pb-1">
+                <dt className="text-muted-foreground truncate">{label}</dt>
+                <dd className="font-medium shrink-0">
+                  {display}
+                  {unit ? ` ${unit}` : ""}
+                </dd>
+              </div>
+            );
+          })}
+        </dl>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function DashboardPage() {
   const [user, setUser] = useState<ReturnType<typeof getUser>>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setUser(getUser());
+    setMounted(true);
   }, []);
 
   const hasToken = typeof window !== "undefined" && !!getToken();
+
+  const { data: profile } = useQuery({
+    queryKey: ["user-profile"],
+    queryFn: getMe,
+    enabled: hasToken,
+    retry: false,
+  });
 
   const { data: analysesData, isSuccess, isPending, error } = useQuery({
     queryKey: ["analyses"],
@@ -119,6 +176,10 @@ export default function DashboardPage() {
   });
 
   const analyses = analysesData?.analyses ?? [];
+  const profileComplete = !!(
+    profile?.first_name?.trim() &&
+    profile?.default_age != null
+  );
   const sortedByDate = useMemo(
     () =>
       [...analyses].sort(
@@ -140,8 +201,47 @@ export default function DashboardPage() {
     retry: false,
   });
 
+  const latestInputQuery = useQuery({
+    queryKey: ["analysis-latest-input"],
+    queryFn: getLatestAnalysisInput,
+    enabled: hasToken && analyses.length > 0,
+    retry: false,
+  });
+
   const count = analyses.length;
   const displayName = user?.email?.split("@")[0] ?? "Пользователь";
+
+  // Один и тот же контент при SSR и первом рендере на клиенте, чтобы избежать ошибки гидратации
+  if (!mounted) {
+    return (
+      <div className="p-6 max-w-3xl">
+        <p className="text-sm text-muted-foreground">Загрузка…</p>
+      </div>
+    );
+  }
+
+  if (!hasToken) {
+    return (
+      <div className="p-6 max-w-3xl">
+        <p className="text-sm text-muted-foreground">
+          Войдите в аккаунт, чтобы увидеть анализы и результаты.
+        </p>
+      </div>
+    );
+  }
+
+  // Нет анализов или профиль не заполнен — весь main = только степпер (без карточки пользователя)
+  if (analyses.length === 0 || !profileComplete) {
+    return (
+      <div className="p-6 max-w-3xl">
+        <DashboardOnboardingStepper
+          profile={profile ?? null}
+          profileComplete={profileComplete}
+          analysesLength={analyses.length}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-3xl space-y-6">
@@ -183,35 +283,23 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {!hasToken && (
-        <p className="text-sm text-muted-foreground">
-          Войдите в аккаунт, чтобы увидеть анализы и результаты.
-        </p>
-      )}
-
-      {hasToken && isPending && (
+      {isPending && (
         <p className="text-sm text-muted-foreground">Загрузка…</p>
       )}
 
-      {hasToken && error && (
+      {error && (
         <p className="text-sm text-destructive">{error.message}</p>
       )}
 
-      {hasToken && isSuccess && analyses.length === 0 && (
-        <DashboardOnboardingStepper />
-      )}
-
-      {hasToken && isSuccess && analyses.length > 0 && !latestCompleted && latestAnalysis && (
+      {analyses.length > 0 && !latestCompleted && latestAnalysis && (
         <AnalysisInProgressCard analysisId={latestAnalysis.analysis_id} />
       )}
 
-      {hasToken && isSuccess && latestCompleted && resultQuery.isPending && (
+      {latestCompleted && resultQuery.isPending && (
         <LastResultCardSkeleton />
       )}
 
-      {hasToken &&
-        isSuccess &&
-        latestCompleted &&
+      {latestCompleted &&
         resultQuery.isSuccess &&
         resultQuery.data &&
         resultQuery.data.status === "ok" && (
@@ -221,16 +309,23 @@ export default function DashboardPage() {
           />
         )}
 
-      {hasToken &&
-        isSuccess &&
-        latestCompleted &&
-        resultQuery.isError && (
+      {analyses.length > 0 &&
+        latestInputQuery.isSuccess &&
+        latestInputQuery.data &&
+        Object.keys(latestInputQuery.data.input_payload || {}).length > 0 && (
+          <LastAnalysisInputCard
+            input={latestInputQuery.data.input_payload}
+            analysisId={latestInputQuery.data.analysis_id}
+          />
+        )}
+
+      {latestCompleted && resultQuery.isError && (
           <Card>
             <CardContent className="pt-6">
               <p className="text-sm text-destructive">
                 Не удалось загрузить результат.{" "}
                 <Link
-                  href={`/analyses/${latestCompleted.analysis_id}/result`}
+                  href={`/analyses/${latestCompleted.analysis_id}`}
                   className="underline"
                 >
                   Открыть страницу результата

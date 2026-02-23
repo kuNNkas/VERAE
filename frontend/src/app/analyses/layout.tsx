@@ -4,7 +4,7 @@ import { AuthGuard } from "@/components/auth-guard";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppFooter } from "@/components/app-footer";
 
-export default function DashboardLayout({
+export default function AnalysesLayout({
   children,
 }: {
   children: React.ReactNode;

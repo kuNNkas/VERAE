@@ -6,7 +6,7 @@ export type StoredUser = { id: string; email: string; created_at: string };
 
 function storage(): Storage | null {
   if (typeof window === "undefined") return null;
-  return window.sessionStorage;
+  return window.localStorage;
 }
 
 export function getToken(): string | null {

@@ -78,6 +78,27 @@ export type AuthResponse = {
   user: UserInfo;
 };
 
+export type UserProfileResponse = {
+  id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  default_age: number | null;
+  default_gender: number | null;
+  default_height: number | null;
+  default_weight: number | null;
+  created_at: string;
+};
+
+export type UserProfileUpdate = {
+  first_name?: string | null;
+  last_name?: string | null;
+  default_age?: number | null;
+  default_gender?: number | null;
+  default_height?: number | null;
+  default_weight?: number | null;
+};
+
 export type UploadMetadata = {
   filename: string;
   content_type: string;
@@ -151,6 +172,26 @@ export async function register(email: string, password: string): Promise<AuthRes
   return response.json() as Promise<AuthResponse>;
 }
 
+export async function getMe(): Promise<UserProfileResponse> {
+  const response = await fetchWithAuth(`${API_BASE}/users/me`);
+  if (!response.ok) {
+    await parseError(response, "Failed to get profile");
+  }
+  return response.json() as Promise<UserProfileResponse>;
+}
+
+export async function patchMe(payload: UserProfileUpdate): Promise<UserProfileResponse> {
+  const response = await fetchWithAuth(`${API_BASE}/users/me`, {
+    method: "PATCH",
+    headers: jsonHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    await parseError(response, "Failed to update profile");
+  }
+  return response.json() as Promise<UserProfileResponse>;
+}
+
 export async function createAnalysis(
   upload: UploadMetadata,
   lab: Record<string, number>,
@@ -192,4 +233,30 @@ export async function getAnalysisResult(analysisId: string): Promise<PredictResp
     await parseError(response, "Failed to get result");
   }
   return response.json() as Promise<PredictResponse>;
+}
+
+export type AnalysisInputResponse = {
+  analysis_id: string;
+  status: string;
+  input_payload: Record<string, number | null | undefined>;
+  created_at: string;
+  updated_at: string;
+};
+
+export async function getLatestAnalysisInput(): Promise<AnalysisInputResponse | null> {
+  const response = await fetchWithAuth(`${API_BASE}/analyses/latest/input`);
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    await parseError(response, "Failed to get latest analysis input");
+  }
+  return response.json() as Promise<AnalysisInputResponse>;
+}
+
+export async function getAnalysisInput(analysisId: string): Promise<AnalysisInputResponse | null> {
+  const response = await fetchWithAuth(`${API_BASE}/analyses/${analysisId}/input`);
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    await parseError(response, "Failed to get analysis input");
+  }
+  return response.json() as Promise<AnalysisInputResponse>;
 }
