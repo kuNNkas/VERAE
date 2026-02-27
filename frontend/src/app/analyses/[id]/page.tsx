@@ -17,22 +17,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FIELD_META } from "@/lib/schemas";
 import { REF_RANGES } from "@/lib/ref-ranges";
 import { RiskGauge } from "@/components/risk-gauge";
-import { ArrowDown, ArrowUp, Info } from "lucide-react";
+import { ArrowDown, ArrowUp, Info, Lightbulb, X } from "lucide-react";
 import { trackEvent } from "@/lib/telemetry";
+import {
+  fetchQuantilesByGender,
+  ageToGroup,
+  getQuantileRow,
+  getMedianForApp,
+  computePercentile,
+  deviationPercent,
+  computePercentileFromP100,
+  type QuantileRow,
+  type AgeGroup,
+} from "@/lib/quantiles";
+import { getRecommendation } from "@/lib/lab-recommendations";
+import type { RefRange } from "@/lib/ref-ranges";
 
 const LAB_DESCRIPTIONS: Record<string, string> = {
-  LBXHGB:
-    "Гемоглобин — белок в эритроцитах, переносит кислород по организму. Снижение может указывать на анемию или дефицит железа.",
-  LBXMCVSI:
-    "Средний объём эритроцита (MCV) — показатель размера красных кровяных клеток. Используется в диагностике анемий.",
-  LBXMCHSI:
-    "Средняя концентрация гемоглобина в эритроцитах (MCHC) — насколько эритроциты насыщены гемоглобином.",
-  LBXRDW:
-    "Ширина распределения эритроцитов (RDW) — разброс размеров красных клеток. Повышается при железодефицитной анемии.",
-  LBXRBCSI:
-    "Эритроциты (RBC) — количество красных кровяных клеток в единице объёма крови. Основной показатель для оценки кислородной функции.",
-  LBXHCT:
-    "Гематокрит (Hct) — доля объёма крови, приходящаяся на эритроциты. Отражает густоту крови и связь с железом.",
+  LBXHGB: "Отражает способность крови переносить кислород.",
+  LBXMCVSI: "Показатель размера красных кровяных клеток; используется в оценке анемий.",
+  LBXMCHSI: "Насыщенность эритроцитов гемоглобином.",
+  LBXRDW: "Разброс размеров эритроцитов; повышается при железодефицитной анемии.",
+  LBXRBCSI: "Количество красных кровяных клеток; основной показатель кислородной функции крови.",
+  LBXHCT: "Доля объёма крови, приходящаяся на эритроциты.",
 };
 
 const POLL_INTERVAL_MS = 1500;
@@ -80,6 +87,34 @@ const STATUS_META: Record<
     actionHref: "/form",
   },
 };
+
+const BORDERLINE_MARGIN = 0.05;
+
+type ResultStatus = "normal" | "borderline" | "low" | "high";
+
+function getResultStatus(
+  value: number,
+  refRange: RefRange
+): ResultStatus {
+  const { normalMin, normalMax } = refRange;
+  const width = normalMax - normalMin;
+  const margin = width * BORDERLINE_MARGIN;
+  if (value >= normalMin && value <= normalMax) return "normal";
+  if (value < normalMin - margin) return "low";
+  if (value > normalMax + margin) return "high";
+  return "borderline";
+}
+
+function ResultStatusLabel({ status }: { status: ResultStatus }) {
+  const config = {
+    normal: { label: "Норма", className: "text-green-600" },
+    borderline: { label: "Погранично", className: "text-yellow-600" },
+    low: { label: "Значимо ниже нормы", className: "text-red-600" },
+    high: { label: "Значимо выше нормы", className: "text-red-600" },
+  };
+  const { label, className } = config[status];
+  return <span className={className}>{label}</span>;
+}
 
 function RefRangeBar({
   value,
@@ -134,13 +169,45 @@ function LabInfoPopover({
   onClose,
   meta,
   description,
+  value,
+  refRange,
+  inputPayload,
+  quantiles,
+  ageGroup,
+  sexLabel,
 }: {
   openKey: string | null;
   onClose: () => void;
   meta: { label: string; unit: string };
   description: string;
+  value: number;
+  refRange: RefRange | null;
+  inputPayload: Record<string, number | null | undefined>;
+  quantiles: QuantileRow[];
+  ageGroup: AgeGroup | null;
+  sexLabel: "мужчин" | "женщин";
 }) {
   if (!openKey) return null;
+
+  const qRow = getQuantileRow(quantiles, ageGroup, openKey);
+  const median = getMedianForApp(qRow, openKey);
+  const deviationPct = median != null ? deviationPercent(value, median) : null;
+  const percentile = computePercentile(value, qRow, openKey);
+  const status = refRange ? getResultStatus(value, refRange) : "normal";
+  const recommendation = getRecommendation(openKey, inputPayload, REF_RANGES);
+
+  const valueDisplay =
+    value % 1 !== 0 ? value.toFixed(2) : value;
+  const deviationStr =
+    deviationPct != null && deviationPct !== 0
+      ? ` ${deviationPct > 0 ? "↑" : "↓"} ${Math.abs(deviationPct)}% от медианы возраста`
+      : "";
+
+  const percentileLabel =
+    percentile != null ? `${Math.round(percentile)}-й перцентиль` : null;
+  const abovePercent =
+    percentile != null ? Math.round(100 - percentile) : null;
+
   return (
     <>
       <button
@@ -156,14 +223,77 @@ function LabInfoPopover({
         aria-modal
       >
         <Card className="border shadow-lg" onClick={(e) => e.stopPropagation()}>
-          <CardHeader className="pb-2">
-            <CardTitle id="lab-popover-title" className="text-base flex items-center gap-2">
-              <Info className="h-4 w-4 shrink-0 text-muted-foreground" />
-              {meta.label}
-            </CardTitle>
-            <p className="text-xs text-muted-foreground font-normal">{meta.unit}</p>
+          <CardHeader className="pb-2 flex flex-row items-start justify-between gap-2">
+            <div>
+              <CardTitle id="lab-popover-title" className="text-base flex items-center gap-2">
+                <Info className="h-4 w-4 shrink-0 text-muted-foreground" />
+                {meta.label}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground font-normal mt-0.5">{meta.unit}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Закрыть"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">{description}</CardContent>
+          <CardContent className="space-y-4 text-sm">
+            {/* Block 1: short description */}
+            <p className="text-muted-foreground leading-snug line-clamp-2">{description}</p>
+
+            {/* Block 2: Your result */}
+            <div className="space-y-1">
+              <p className="font-medium text-foreground">Ваш результат</p>
+              <p className="text-foreground">
+                {valueDisplay} {meta.unit}
+                {deviationStr && (
+                  <span className="text-muted-foreground font-normal">{deviationStr}</span>
+                )}
+              </p>
+              {refRange && (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    Норма: {refRange.normalMin}–{refRange.normalMax} {meta.unit}
+                  </p>
+                  <p className="text-xs">
+                    Статус: <ResultStatusLabel status={status} />
+                  </p>
+                </>
+              )}
+            </div>
+
+            {/* Block 3: Percentile */}
+            {ageGroup && (percentileLabel != null || abovePercent != null) && (
+              <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
+                <p className="font-medium text-foreground">
+                  Где вы среди {sexLabel} вашего возраста
+                </p>
+                {percentileLabel && (
+                  <p className="text-foreground">{percentileLabel}</p>
+                )}
+                {abovePercent != null && (
+                  <p className="text-muted-foreground text-xs">
+                    {abovePercent}% {sexLabel} вашего возраста имеют значение выше вашего
+                  </p>
+                )}
+                <p className="text-[10px] text-muted-foreground italic">
+                  Это популяционная статистика, не клинический диагноз.
+                </p>
+              </div>
+            )}
+
+            {/* Block 4: What to pay attention to */}
+            <div className="space-y-1">
+              <p className="font-medium text-foreground flex items-center gap-2">
+                <Lightbulb className="h-4 w-4 shrink-0 text-amber-500" />
+                На что обратить внимание
+              </p>
+              <p className="text-muted-foreground leading-snug">{recommendation}</p>
+            </div>
+          </CardContent>
         </Card>
       </div>
     </>
@@ -172,10 +302,15 @@ function LabInfoPopover({
 
 function AnalysisDecodeBlock({
   inputPayload,
+  quantiles,
+  sexLabel,
 }: {
   inputPayload: Record<string, number | null | undefined>;
+  quantiles: QuantileRow[];
+  sexLabel: "мужчин" | "женщин";
 }) {
   const [openInfoKey, setOpenInfoKey] = useState<string | null>(null);
+
   const entries = Object.entries(inputPayload).filter(
     ([, v]) => v != null && typeof v === "number" && !Number.isNaN(v)
   ) as [string, number][];
@@ -188,6 +323,13 @@ function AnalysisDecodeBlock({
     ? LAB_DESCRIPTIONS[openInfoKey] ??
       `${openMeta?.label ?? openInfoKey}. Единица: ${openMeta?.unit ?? "—"}.`
     : "";
+  const openValue =
+    openInfoKey != null && typeof inputPayload[openInfoKey] === "number"
+      ? (inputPayload[openInfoKey] as number)
+      : 0;
+  const openRefRange = openInfoKey ? REF_RANGES[openInfoKey] ?? null : null;
+  const ageYears = typeof inputPayload.RIDAGEYR === "number" ? inputPayload.RIDAGEYR : null;
+  const ageGroup = ageYears != null ? ageToGroup(ageYears) : null;
 
   return (
     <Card className="mb-6">
@@ -269,6 +411,12 @@ function AnalysisDecodeBlock({
           onClose={() => setOpenInfoKey(null)}
           meta={openMeta}
           description={openDescription}
+          value={openValue}
+          refRange={openRefRange}
+          inputPayload={inputPayload}
+          quantiles={quantiles}
+          ageGroup={ageGroup}
+          sexLabel={sexLabel}
         />
       )}
     </Card>
@@ -310,6 +458,16 @@ export default function AnalysisPage() {
   const result = resultQuery.data;
   const inputData = inputQuery.data;
   const error = statusQuery.error ?? resultQuery.error;
+
+  const sex = inputData?.input_payload?.RIAGENDR;
+  const gender: 1 | 2 = sex === 1 ? 1 : 2;
+  const quantilesByGenderQuery = useQuery({
+    queryKey: ["quantiles-by-gender", gender],
+    queryFn: () => fetchQuantilesByGender(gender),
+    enabled: !!inputData && status === "completed",
+  });
+  const quantilesResult = quantilesByGenderQuery.data;
+  const sexLabel: "мужчин" | "женщин" = gender === 1 ? "мужчин" : "женщин";
 
   useEffect(() => {
     if (error) {
@@ -456,6 +614,14 @@ export default function AnalysisPage() {
 
   const ironIndex = result.iron_index ?? 0;
   const tier = result.risk_tier ?? "GRAY";
+  const inputPayload = inputData?.input_payload;
+  const ageYears = typeof inputPayload?.RIDAGEYR === "number" ? inputPayload.RIDAGEYR : null;
+  const ageGroup = ageYears != null ? ageToGroup(ageYears) : null;
+  const ironByAge = quantilesResult?.ironByAge;
+  const ironPercentile =
+    ageGroup && ironByAge?.[ageGroup] != null
+      ? computePercentileFromP100(ironIndex, ironByAge[ageGroup])
+      : null;
 
   return (
     <AuthGuard>
@@ -486,7 +652,11 @@ export default function AnalysisPage() {
           </Card>
         )}
         {inputQuery.isSuccess && inputData?.input_payload && Object.keys(inputData.input_payload).length > 0 && (
-          <AnalysisDecodeBlock inputPayload={inputData.input_payload} />
+          <AnalysisDecodeBlock
+            inputPayload={inputData.input_payload}
+            quantiles={quantilesResult?.labRows ?? []}
+            sexLabel={sexLabel}
+          />
         )}
         {inputQuery.isSuccess && (!inputData?.input_payload || Object.keys(inputData.input_payload).length === 0) && (
           <Card className="mb-6">
@@ -518,6 +688,12 @@ export default function AnalysisPage() {
               ironIndex={ironIndex}
               riskPercent={result.risk_percent ?? undefined}
             />
+            {ironPercentile != null && ageGroup && (
+              <p className="text-sm text-muted-foreground">
+                Среди {sexLabel} {ageGroup} лет ваш индекс железа выше, чем у{" "}
+                {Math.round(ironPercentile)}%.
+              </p>
+            )}
             <p>
               <strong>Уровень риска:</strong>{" "}
               <span

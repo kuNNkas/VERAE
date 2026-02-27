@@ -12,8 +12,10 @@ services:
       - MODEL_PATH=/workspace/ironrisk_bi_reg_29n.cbm
       - APP_ENV=${APP_ENV:-dev}
       - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
+      - DATABASE_URL=sqlite:////data/verae.db
     volumes:
       - ./:/workspace:ro
+      - verae_data:/data
 
   frontend:
     build:
@@ -25,3 +27,6 @@ services:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:
       - api
+
+volumes:
+  verae_data:

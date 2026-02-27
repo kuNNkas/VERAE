@@ -82,5 +82,6 @@ def create_app() -> FastAPI:
     app.include_router(analyses_router)
     app.include_router(users_router)
     app.include_router(predict_router)
+    app.include_router(quantiles_router)
 
     return app
