@@ -13,6 +13,7 @@ import {
   ChevronDown,
   PanelLeftClose,
   PanelLeft,
+  UserCircle,
 } from "lucide-react";
 
 const SIDEBAR_OPEN_KEY = "verae_sidebar_open";
@@ -49,6 +50,7 @@ export function AppSidebar() {
   const navItems = [
     { href: "/analyses", label: "Мои анализы", icon: LayoutGrid, match: (p: string) => p?.startsWith("/analyses") },
     { href: "/dashboard", label: "Мой план", icon: FileText, match: (p: string) => p === "/dashboard" },
+    { href: "/profile", label: "Профиль", icon: UserCircle, match: (p: string) => p === "/profile" },
   ];
 
   return (
@@ -135,7 +137,7 @@ export function AppSidebar() {
           <div className="min-w-0 flex-1">
             <p className="font-medium truncate text-sm leading-tight">{displayName}</p>
             <Link
-              href="/dashboard"
+              href="/profile"
               className="text-xs text-muted-foreground hover:text-foreground truncate block leading-tight"
             >
               Редактировать профиль

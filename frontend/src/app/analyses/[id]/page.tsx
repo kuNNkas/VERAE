@@ -125,40 +125,80 @@ function RefRangeBar({
   refRange: { normalMin: number; normalMax: number; scaleMin?: number; scaleMax?: number };
   unit: string;
 }) {
-  const min = refRange.scaleMin ?? refRange.normalMin - (refRange.normalMax - refRange.normalMin);
-  const max = refRange.scaleMax ?? refRange.normalMax + (refRange.normalMax - refRange.normalMin);
-  const range = max - min;
-  const lowPct = ((refRange.normalMin - min) / range) * 100;
-  const normPct = ((refRange.normalMax - refRange.normalMin) / range) * 100;
-  const highPct = 100 - lowPct - normPct;
-  const valuePct = Math.max(0, Math.min(100, ((value - min) / range) * 100));
+  const scaleMin = refRange.scaleMin ?? refRange.normalMin - (refRange.normalMax - refRange.normalMin);
+  const scaleMax = refRange.scaleMax ?? refRange.normalMax + (refRange.normalMax - refRange.normalMin);
+  const range = scaleMax - scaleMin;
+  const normalWidth = refRange.normalMax - refRange.normalMin;
+  const borderlineWidth = Math.max(normalWidth * 0.2, range * 0.08);
+
+  const valuePct = Math.max(3, Math.min(97, ((value - scaleMin) / range) * 100));
+
+  const status = getResultStatus(value, refRange);
+  const pillStyle: Record<ResultStatus, string> = {
+    normal: "bg-green-100 text-green-800",
+    borderline: "bg-yellow-100 text-yellow-800",
+    low: "bg-red-100 text-red-800",
+    high: "bg-red-100 text-red-800",
+  };
+  const displayValue = value % 1 !== 0 ? value.toFixed(2) : value;
+
+  const tick1 = Math.max(0, (refRange.normalMin - borderlineWidth - scaleMin) / range * 100);
+  const tick2 = (refRange.normalMin - scaleMin) / range * 100;
+  const tick3 = (refRange.normalMax - scaleMin) / range * 100;
+  const tick4 = Math.min(100, (refRange.normalMax + borderlineWidth - scaleMin) / range * 100);
 
   return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-sm">
-        <span className="font-medium">{value} {unit}</span>
-        <span className="text-muted-foreground text-xs">
-          норма: {refRange.normalMin}–{refRange.normalMax} {unit}
+    <div className="relative pt-9 pb-5">
+      {/* Value badge + downward triangle, positioned at value's X */}
+      <div
+        className="absolute top-0 flex flex-col items-center"
+        style={{ left: `${valuePct}%`, transform: "translateX(-50%)" }}
+      >
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${pillStyle[status]}`}>
+          {displayValue} {unit}
         </span>
+        <div
+          style={{
+            marginTop: 3,
+            width: 0,
+            height: 0,
+            borderLeft: "5px solid transparent",
+            borderRight: "5px solid transparent",
+            borderTop: "6px solid #94a3b8",
+          }}
+        />
       </div>
-      <div className="relative h-6 w-full rounded-md overflow-hidden flex">
-        <div
-          className="h-full bg-red-500/30 shrink-0"
-          style={{ width: `${lowPct}%` }}
-        />
-        <div
-          className="h-full bg-green-500/40 shrink-0"
-          style={{ width: `${normPct}%` }}
-        />
-        <div
-          className="h-full bg-red-500/30 shrink-0"
-          style={{ width: `${highPct}%` }}
-        />
-        <div
-          className="absolute top-0 bottom-0 w-0.5 bg-foreground shadow-sm"
-          style={{ left: `${valuePct}%`, transform: "translateX(-50%)" }}
-          title={`${value} ${unit}`}
-        />
+
+      {/* 5-segment bar + tick marks (absolute, so ticks align with gaps) */}
+      <div className="relative" style={{ height: "12px" }}>
+        <div className="absolute rounded-full bg-red-400"    style={{ left: 0,                            top: 0, height: "100%", width: `calc(${tick1}% - 2px)` }} />
+        <div className="absolute rounded-full bg-yellow-400" style={{ left: `calc(${tick1}% + 2px)`,     top: 0, height: "100%", width: `calc(${tick2 - tick1}% - 4px)` }} />
+        <div className="absolute rounded-full bg-green-500"  style={{ left: `calc(${tick2}% + 2px)`,     top: 0, height: "100%", width: `calc(${tick3 - tick2}% - 4px)` }} />
+        <div className="absolute rounded-full bg-yellow-400" style={{ left: `calc(${tick3}% + 2px)`,     top: 0, height: "100%", width: `calc(${tick4 - tick3}% - 4px)` }} />
+        <div className="absolute rounded-full bg-red-400"    style={{ left: `calc(${tick4}% + 2px)`,     top: 0, height: "100%", right: 0 }} />
+        {[tick1, tick2, tick3, tick4].map((pct, i) => (
+          <div
+            key={i}
+            className="absolute bg-slate-500 rounded-full"
+            style={{ left: `${pct}%`, top: "-3px", height: "18px", width: "1.5px", transform: "translateX(-50%)" }}
+          />
+        ))}
+      </div>
+
+      {/* Scale labels at normal range boundaries */}
+      <div className="relative mt-1 h-4">
+        <span
+          className="absolute -translate-x-1/2 text-[10px] text-muted-foreground"
+          style={{ left: `${tick2}%` }}
+        >
+          {refRange.normalMin}
+        </span>
+        <span
+          className="absolute -translate-x-1/2 text-[10px] text-muted-foreground"
+          style={{ left: `${tick3}%` }}
+        >
+          {refRange.normalMax}
+        </span>
       </div>
     </div>
   );
@@ -347,12 +387,19 @@ function AnalysisDecodeBlock({
               const meta = FIELD_META[key];
               const refRange = REF_RANGES[key];
               if (!meta || !refRange) return null;
+              const itemStatus = getResultStatus(value, refRange);
+              const statusBorder: Record<ResultStatus, string> = {
+                normal: "border-green-200",
+                borderline: "border-yellow-200",
+                low: "border-red-200",
+                high: "border-red-200",
+              };
               return (
                 <div
                   key={key}
                   role="button"
                   tabIndex={0}
-                  className="rounded-lg border-2 border-transparent p-3 transition-colors hover:border-border hover:bg-muted/30 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer space-y-1"
+                  className={`rounded-lg border p-3 transition-colors hover:bg-muted/30 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer space-y-1 ${statusBorder[itemStatus]}`}
                   onClick={() => setOpenInfoKey(openInfoKey === key ? null : key)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {

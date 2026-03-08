@@ -209,7 +209,10 @@ export default function DashboardPage() {
   });
 
   const count = analyses.length;
-  const displayName = user?.email?.split("@")[0] ?? "Пользователь";
+  const displayName =
+    profile?.first_name?.trim() ||
+    user?.email?.split("@")[0] ||
+    "Пользователь";
 
   // Один и тот же контент при SSR и первом рендере на клиенте, чтобы избежать ошибки гидратации
   if (!mounted) {
@@ -256,9 +259,9 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-2">
                   <h1 className="text-xl font-semibold">{displayName}</h1>
                   <Link
-                    href="/dashboard"
+                    href="/profile"
                     className="text-muted-foreground hover:text-foreground"
-                    aria-label="Редактировать"
+                    aria-label="Редактировать профиль"
                   >
                     <Pencil className="h-4 w-4" />
                   </Link>
@@ -269,7 +272,13 @@ export default function DashboardPage() {
                     : `${count} ${count === 1 ? "анализ" : count < 5 ? "анализа" : "анализов"} загружено`}
                 </p>
                 <p className="text-sm text-muted-foreground mt-2">
-                  — лет • — • — кг • — см • —
+                  {profile?.default_age != null ? `${profile.default_age} лет` : "— лет"}
+                  {" • "}
+                  {profile?.default_gender === 1 ? "Мужской" : profile?.default_gender === 2 ? "Женский" : "—"}
+                  {" • "}
+                  {profile?.default_weight != null ? `${profile.default_weight} кг` : "— кг"}
+                  {" • "}
+                  {profile?.default_height != null ? `${profile.default_height} см` : "— см"}
                 </p>
               </div>
             </div>
