@@ -241,11 +241,14 @@ class ModelRunner:
                 )
             return explanations
 
-        _HIDE_FROM_EXPLANATIONS = {"BMXHT", "BMXWT", "BMXWAIST"}
+        _SHOW_IN_EXPLANATIONS = {
+            "LBXRDW", "LBXMC", "LBXMCVSI", "LBXMCHSI",
+            "LBXHGB", "LBXHCT", "LBXRBCSI",
+        }
         shap_values = self.model.get_feature_importance(Pool(df), type="ShapValues")[0]
         explanations = []
         for feature_name, impact in zip(FEATURES, shap_values[:-1]):
-            if abs(impact) < 0.01 or feature_name in _HIDE_FROM_EXPLANATIONS:
+            if abs(impact) < 0.01 or feature_name not in _SHOW_IN_EXPLANATIONS:
                 continue
             direction = "negative" if impact < 0 else "positive"
             explanations.append(
