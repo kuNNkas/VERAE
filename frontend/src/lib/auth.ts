@@ -49,7 +49,7 @@ export async function fetchWithAuth(input: RequestInfo | URL, init: RequestInit 
   const token = getToken();
 
   if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
+    headers.set("X-Authorization", `Bearer ${token}`);
   }
 
   const response = await fetch(input, {
