@@ -997,7 +997,13 @@ export default function AnalysisPage() {
               </p>
               {result.explanations && result.explanations.length > 0 ? (() => {
                 type Explanation = { feature?: string; label?: string; text?: string; direction?: string; impact?: number };
-                const exps = result.explanations as Explanation[];
+                const VISIBLE_FEATURES = new Set([
+                  "LBXRDW", "LBXMC", "LBXMCVSI", "LBXMCHSI",
+                  "LBXHGB", "LBXHCT", "LBXRBCSI",
+                ]);
+                const exps = (result.explanations as Explanation[]).filter(
+                  (e) => e.feature && VISIBLE_FEATURES.has(e.feature),
+                );
                 const maxImpact = Math.max(...exps.map((e) => Math.abs(e.impact ?? 1)), 1);
                 return (
                   <ul className="space-y-3">
