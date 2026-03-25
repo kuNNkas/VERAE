@@ -161,7 +161,7 @@ export function computePercentile(
     return computePercentileFromP100(value, scaled);
   }
   const qs = [10, 20, 30, 40, 50, 60, 70, 80, 90] as const;
-  const vals = qs.map((q) => csvValueToApp((row as Record<string, number>)[`q${q}`], appCode));
+  const vals = qs.map((q) => csvValueToApp((row as unknown as Record<string, number>)[`q${q}`], appCode));
   if (value <= vals[0]) return 10;
   if (value >= vals[vals.length - 1]) return 90;
   for (let i = 0; i < vals.length - 1; i++) {
