@@ -62,7 +62,7 @@ const POLL_TIMEOUT_MS = 75000;
 const TIER_LABEL: Record<string, string> = {
   HIGH: "Высокий риск",
   WARNING: "Повышенный риск",
-  GRAY: "Неопределённо",
+  GRAY: "Потенциальный риск",
   LOW: "Низкий риск",
 };
 
@@ -927,7 +927,7 @@ export default function AnalysisPage() {
                   ? "bg-amber-500/10 border-y border-amber-500/20 px-6 py-4"
                   : tier === "LOW"
                     ? "bg-green-500/10 border-y border-green-500/20 px-6 py-4"
-                    : "bg-muted border-y px-6 py-4"
+                    : "bg-yellow-500/10 border-y border-yellow-500/20 px-6 py-4"
             }
           >
             <div className="flex items-center justify-between flex-wrap gap-2">
@@ -941,7 +941,7 @@ export default function AnalysisPage() {
                         ? "text-amber-600"
                         : tier === "LOW"
                           ? "text-green-600"
-                          : "text-muted-foreground"
+                          : "text-yellow-600"
                   }`}
                 >
                   {TIER_LABEL[tier] ?? tier}

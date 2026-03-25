@@ -15,14 +15,14 @@ import { DashboardOnboardingStepper } from "@/components/dashboard-onboarding-st
 const TIER_LABEL: Record<string, string> = {
   HIGH: "Высокий риск",
   WARNING: "Повышенный риск",
-  GRAY: "Неопределённо",
+  GRAY: "Потенциальный риск",
   LOW: "Низкий риск",
 };
 
 const TIER_STYLE: Record<string, string> = {
   HIGH: "bg-red-500/10 text-red-600 border-red-500/30",
   WARNING: "bg-amber-500/10 text-amber-700 border-amber-500/30",
-  GRAY: "bg-muted text-muted-foreground border-border",
+  GRAY: "bg-yellow-500/10 text-yellow-700 border-yellow-500/30",
   LOW: "bg-primary/10 text-primary border-primary/30",
 };
 
