@@ -152,6 +152,95 @@ export function getRecommendation(
       }
       return "Значение в пределах нормы.";
 
+    case "LBXWBCSI": {
+      const wbc = getValue(inputPayload, "LBXWBCSI");
+      const refWbc = getRef(inputPayload, refRanges, "LBXWBCSI");
+      if (wbc !== null && refWbc) {
+        if (isAboveNormal(wbc, refWbc)) {
+          return "Повышенное количество лейкоцитов может указывать на воспаление, инфекцию или стресс. Рекомендуем обсудить с врачом при сохранении симптомов.";
+        }
+        if (isBelowNormal(wbc, refWbc)) {
+          return "Снижение лейкоцитов может быть связано с вирусными инфекциями или угнетением иммунитета. Рекомендуем обсудить с врачом.";
+        }
+      }
+      return "Значение в пределах нормы.";
+    }
+
+    case "LBXPLTSI": {
+      const plt = getValue(inputPayload, "LBXPLTSI");
+      const refPlt = getRef(inputPayload, refRanges, "LBXPLTSI");
+      if (plt !== null && refPlt) {
+        if (isAboveNormal(plt, refPlt)) {
+          return "Повышенное количество тромбоцитов может встречаться при воспалении, дефиците железа или после нагрузки. Обсудите с врачом при значительном превышении.";
+        }
+        if (isBelowNormal(plt, refPlt)) {
+          return "Снижение тромбоцитов может влиять на свёртываемость крови. Обсудите результат с врачом.";
+        }
+      }
+      return "Значение в пределах нормы.";
+    }
+
+    case "LBXMPSI": {
+      const mpv = getValue(inputPayload, "LBXMPSI");
+      const refMpv = getRef(inputPayload, refRanges, "LBXMPSI");
+      if (mpv !== null && refMpv && isAboveNormal(mpv, refMpv)) {
+        return "Повышенный средний объём тромбоцитов может указывать на их повышенную активность. Интерпретируется в комплексе с числом тромбоцитов.";
+      }
+      return "Значение в пределах нормы.";
+    }
+
+    case "LBXSGL": {
+      const gl = getValue(inputPayload, "LBXSGL");
+      const refGl = getRef(inputPayload, refRanges, "LBXSGL");
+      if (gl !== null && refGl) {
+        if (isAboveNormal(gl, refGl)) {
+          return "Глюкоза выше нормы. При уровне 6.1–6.9 ммоль/л натощак говорят о преддиабете, выше 7.0 — возможен диабет. Рекомендуем обсудить с врачом и пересдать натощак.";
+        }
+        if (isBorderline(gl, refGl)) {
+          return "Глюкоза у верхней границы нормы. Следите за питанием и при повторном повышении обсудите с врачом.";
+        }
+      }
+      return "Значение в пределах нормы.";
+    }
+
+    case "LBXSCH": {
+      const chol = getValue(inputPayload, "LBXSCH");
+      const refChol = getRef(inputPayload, refRanges, "LBXSCH");
+      if (chol !== null && refChol && isAboveNormal(chol, refChol)) {
+        return "Повышенный холестерин — фактор риска сердечно-сосудистых заболеваний. Рекомендуем пересмотреть диету и обсудить с врачом необходимость дополнительного обследования (ЛПНП, ЛПВП, триглицериды).";
+      }
+      return "Значение в пределах нормы.";
+    }
+
+    case "BMXBMI": {
+      const bmi = getValue(inputPayload, "BMXBMI");
+      if (bmi !== null) {
+        if (bmi >= 30) return "ИМТ соответствует ожирению. Это фактор риска ряда заболеваний. Рекомендуем обсудить с врачом коррекцию веса.";
+        if (bmi >= 25) return "ИМТ соответствует избыточному весу. Умеренная физическая активность и сбалансированное питание помогут снизить риски.";
+        if (bmi < 18.5) return "ИМТ ниже нормы. Низкая масса тела может быть связана с дефицитом питательных веществ, включая железо.";
+      }
+      return "Значение в пределах нормы.";
+    }
+
+    case "BP_SYS": {
+      const sys = getValue(inputPayload, "BP_SYS");
+      const refSys = getRef(inputPayload, refRanges, "BP_SYS");
+      if (sys !== null && refSys) {
+        if (sys >= 140) return "Систолическое давление ≥140 мм рт.ст. — артериальная гипертензия. Рекомендуем регулярный контроль и консультацию врача.";
+        if (isAboveNormal(sys, refSys)) return "Давление повышено. Повторные измерения и снижение нагрузки/стресса помогут прояснить картину. При сохранении — обсудите с врачом.";
+      }
+      return "Значение в пределах нормы.";
+    }
+
+    case "BP_DIA": {
+      const dia = getValue(inputPayload, "BP_DIA");
+      const refDia = getRef(inputPayload, refRanges, "BP_DIA");
+      if (dia !== null && refDia && isAboveNormal(dia, refDia)) {
+        return "Диастолическое давление выше нормы. Рекомендуем повторные измерения и при сохранении — консультацию врача.";
+      }
+      return "Значение в пределах нормы.";
+    }
+
     default:
       return "Обсудите результат с врачом при необходимости.";
   }

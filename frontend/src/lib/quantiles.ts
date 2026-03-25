@@ -27,6 +27,8 @@ export interface QuantileRow {
   q70: number;
   q80: number;
   q90: number;
+  /** Full p0–p100 array when available (from gender-specific CSV). */
+  p0toP100?: number[];
 }
 
 /** Маппинг кода показателя в приложении на код в CSV (если отличается). */
@@ -143,7 +145,8 @@ export function getMedianForApp(
 
 /**
  * Вычисляет перцентиль (0–100) по значению и строке квантилей; значение в единицах приложения.
- * Линейная интерполяция между соседними q.
+ * Если в строке есть p0toP100 — использует полный массив (точная интерполяция).
+ * Иначе — линейная интерполяция между q10…q90.
  */
 export function computePercentile(
   value: number,
@@ -151,6 +154,12 @@ export function computePercentile(
   appCode: string
 ): number | null {
   if (!row) return null;
+  if (row.p0toP100) {
+    const scaled = csvValueToApp(1, appCode) !== 1
+      ? row.p0toP100.map((v) => csvValueToApp(v, appCode))
+      : row.p0toP100;
+    return computePercentileFromP100(value, scaled);
+  }
   const qs = [10, 20, 30, 40, 50, 60, 70, 80, 90] as const;
   const vals = qs.map((q) => csvValueToApp((row as Record<string, number>)[`q${q}`], appCode));
   if (value <= vals[0]) return 10;
@@ -271,6 +280,7 @@ export function parseQuantilesCsvByGender(
       q70,
       q80,
       q90,
+      p0toP100: pValues,
     });
   }
   return { labRows, ironByAge };
@@ -297,6 +307,21 @@ export function computePercentileFromP100(
     }
   }
   return 50;
+}
+
+/**
+ * Возвращает типичный диапазон (p25–p75) в единицах приложения.
+ * Используется для блока «Среди сверстников» (Sweet Spot).
+ */
+export function getTypicalRange(
+  row: QuantileRow | null,
+  appCode: string
+): { p25: number; p75: number } | null {
+  if (!row?.p0toP100 || row.p0toP100.length < 76) return null;
+  return {
+    p25: csvValueToApp(row.p0toP100[25], appCode),
+    p75: csvValueToApp(row.p0toP100[75], appCode),
+  };
 }
 
 /** Хардкод: CSV по полу лежат в public. */

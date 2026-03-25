@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d frontend)"
+      "Bash(docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d frontend)",
+      "Bash(xargs grep -l \"RIAGENDR\")",
+      "Bash(xargs grep -l \"Мужской\\\\|Женский\\\\|gender\\\\|RIAGENDR\")"
     ]
   }
 }
