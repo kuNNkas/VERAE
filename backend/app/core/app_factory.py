@@ -1,5 +1,6 @@
 import os
 import logging
+import re
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -27,6 +28,8 @@ DEV_CORS_ORIGINS = [
 PROD_CORS_ORIGINS = ['https://app.verae.ai',
                      'https://verae-beta.vercel.app']
 
+VERCEL_PREVIEW_RE = r'https://verae[a-z0-9\-]*\.vercel\.app'
+
 
 def _parse_origins(raw_origins: str | None) -> list[str]:
     if not raw_origins:
@@ -34,21 +37,20 @@ def _parse_origins(raw_origins: str | None) -> list[str]:
     return [origin.strip() for origin in raw_origins.split(',') if origin.strip()]
 
 
-def _resolve_cors_origins() -> list[str]:
+def _resolve_cors_origins() -> tuple[list[str], str | None]:
     app_env = os.getenv('APP_ENV', 'dev').strip().lower()
     env_origins = _parse_origins(os.getenv('CORS_ALLOW_ORIGINS'))
 
     if app_env == 'prod':
-        # In production we require explicit allowlist and reject wildcard origins.
         if not env_origins:
             raise RuntimeError('CORS_ALLOW_ORIGINS must be set in production')
         if '*' in env_origins:
             raise RuntimeError('Wildcard CORS origin is not allowed in production')
-        return env_origins
+        return env_origins, VERCEL_PREVIEW_RE
 
     if env_origins:
-        return env_origins
-    return DEV_CORS_ORIGINS
+        return env_origins, VERCEL_PREVIEW_RE
+    return DEV_CORS_ORIGINS, VERCEL_PREVIEW_RE
 
 
 def create_app() -> FastAPI:
@@ -59,11 +61,12 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title='VERAE B2C API', version='0.3.0', lifespan=lifespan)
     logging.basicConfig(level=os.getenv('LOG_LEVEL', 'INFO'))
-    cors_origins = _resolve_cors_origins()
+    cors_origins, cors_regex = _resolve_cors_origins()
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,
+        allow_origin_regex=cors_regex,
         allow_credentials=bool(cors_origins),
         allow_methods=['*'],
         allow_headers=['*'],
