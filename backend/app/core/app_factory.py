@@ -22,8 +22,10 @@ DEV_CORS_ORIGINS = [
     'http://127.0.0.1:5173',
     'http://localhost:8080',
     'http://127.0.0.1:8080',
+    'https://verae-beta.vercel.app',
 ]
-PROD_CORS_ORIGINS = ['https://app.verae.ai']
+PROD_CORS_ORIGINS = ['https://app.verae.ai',
+                     'https://verae-beta.vercel.app']
 
 
 def _parse_origins(raw_origins: str | None) -> list[str]:
