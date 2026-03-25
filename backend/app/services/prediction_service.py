@@ -352,6 +352,48 @@ def resolve_action_from_tier(tier: str) -> str:
     return actions[tier]
 
 
+_GENDER_REFS: dict[int, dict[str, tuple[float, float]]] = {
+    1: {"LBXHGB": (13.0, 17.0), "LBXRBCSI": (4.0, 5.0), "LBXHCT": (40.0, 48.0)},
+    2: {"LBXHGB": (12.0, 16.0), "LBXRBCSI": (3.9, 4.7), "LBXHCT": (36.0, 42.0)},
+}
+_SHARED_REFS: dict[str, tuple[float, float]] = {
+    "LBXMCVSI": (80.0, 100.0),
+    "LBXMCHSI": (30.0, 38.0),
+    "LBXRDW": (11.5, 14.5),
+}
+
+
+def _clinical_adjustment(iron_index: float, payload: dict[str, Any]) -> float:
+    """Shift iron_index down when CBC markers fall below gender-specific references.
+
+    The CatBoost model was trained exclusively on women 12-49 and scores with
+    gender set to NaN, so it cannot distinguish male-range from female-range
+    normals.  This post-hoc correction penalises the index proportionally to
+    how far each marker lies below (or above, for RDW) its gender-aware
+    reference boundary.
+    """
+    gender = payload.get("RIAGENDR")
+    refs = {**_SHARED_REFS}
+    if gender in _GENDER_REFS:
+        refs.update(_GENDER_REFS[gender])
+
+    normalized = normalize_input(payload)
+    penalty = 0.0
+
+    for key, (lo, hi) in refs.items():
+        val = normalized.get(key)
+        if val is None:
+            continue
+        if key == "LBXRDW":
+            if val > hi:
+                penalty += (val - hi) / hi * 4.0
+        else:
+            if val < lo:
+                penalty += (lo - val) / lo * 4.0
+
+    return iron_index - penalty
+
+
 def get_display_risk(iron_index: float) -> float:
     risk = 1 / (1 + np.exp(0.5 * iron_index))
     return round(float(risk * 100), 1)
@@ -380,7 +422,8 @@ def predict_payload(data: dict[str, Any]) -> PredictResponse:
         )
 
     runner = get_runner()
-    iron_index = runner.predict_iron_index(data)
+    raw_iron_index = runner.predict_iron_index(data)
+    iron_index = _clinical_adjustment(raw_iron_index, data)
     risk_tier, clinical_action = resolve_risk_profile(iron_index)
 
     return PredictResponse(
