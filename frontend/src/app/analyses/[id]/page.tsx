@@ -981,12 +981,21 @@ export default function AnalysisPage() {
                 </p>
               );
             })()}
-            {result.clinical_action && (
+            {tier === "GRAY" ? (
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+                <p className="text-sm font-medium mb-1 text-yellow-700">Рекомендация</p>
+                <p className="text-sm text-yellow-800">
+                  Риск латентного дефицита железа. Рекомендуется сдать ферритин.
+                  Особенно важно при беременности, её планировании, обильных менструациях
+                  или симптомах анемии (слабость, утомляемость, выпадение волос, ломкость ногтей).
+                </p>
+              </div>
+            ) : result.clinical_action ? (
               <div className="bg-muted rounded-lg p-3">
                 <p className="text-sm font-medium mb-1">Рекомендация</p>
                 <p className="text-sm">{result.clinical_action}</p>
               </div>
-            )}
+            ) : null}
 
             <hr className="border-border/40" />
 
